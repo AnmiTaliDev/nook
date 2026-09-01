@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browse_navigate_up">Navigate up</string>
+    <string name="browse_empty_directory">This folder is empty</string>
+    <string name="browse_error_title">Something went wrong</string>
+    <string name="browse_permission_title">Storage access needed</string>
+    <string name="browse_permission_message">Nook needs access to all files to browse and manage your storage.</string>
+    <string name="browse_permission_grant_action">Grant access</string>
+    <string name="browse_folder_content_description">Folder</string>
+    <string name="browse_file_content_description">File</string>
+    <string name="browse_breadcrumb_content_description">Go to %1$s</string>
+    <string name="browse_item_size_directory">%1$d items</string>
+</resources>
