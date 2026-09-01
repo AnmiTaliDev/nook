@@ -31,14 +31,21 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -48,12 +55,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,9 +73,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.anmitali.nook.core.model.FileItem
+import dev.anmitali.nook.core.model.Volume
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -81,8 +92,11 @@ fun BrowseScreen(
     val dialog by viewModel.dialog.collectAsState()
     val operationProgress by viewModel.operationProgress.collectAsState()
     val pendingUndo by viewModel.pendingUndo.collectAsState()
+    val volumes by viewModel.volumes.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddChooser by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val coroutineScope = rememberCoroutineScope()
 
     BackHandler(enabled = selectedPaths.isNotEmpty() || viewModel.canNavigateUp) {
         if (selectedPaths.isNotEmpty()) {
@@ -105,86 +119,106 @@ fun BrowseScreen(
         }
     }
 
-    Scaffold(
+    ModalNavigationDrawer(
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            if (selectedPaths.isNotEmpty()) {
-                SelectionTopBar(
-                    selectedCount = selectedPaths.size,
-                    onClear = viewModel::clearSelection,
-                    onCopy = viewModel::onCopySelected,
-                    onCut = viewModel::onCutSelected,
-                    onDelete = viewModel::onRequestDelete,
-                    onRename = {
-                        val state = uiState as? BrowseUiState.Content ?: return@SelectionTopBar
-                        val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
-                        viewModel.onRequestRename(item)
-                    },
-                    canRename = selectedPaths.size == 1,
-                )
-            } else {
-                TopAppBar(
-                    title = {
-                        val breadcrumbs = (uiState as? BrowseUiState.Content)?.breadcrumbs.orEmpty()
-                        BreadcrumbBar(
-                            segments = breadcrumbs,
-                            onSegmentClick = { index ->
-                                val path = "/" + breadcrumbs.take(index + 1).joinToString("/")
-                                viewModel.onDirectoryOpened(path)
-                            },
-                        )
-                    },
-                    navigationIcon = {
-                        if (viewModel.canNavigateUp) {
-                            IconButton(onClick = { viewModel.onNavigateUp() }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = stringResource(R.string.browse_navigate_up),
-                                )
-                            }
-                        }
-                    },
-                )
-            }
+        drawerState = drawerState,
+        drawerContent = {
+            BrowseDrawerContent(
+                volumes = volumes,
+                onVolumeClick = { volume ->
+                    viewModel.onDirectoryOpened(volume.rootPath)
+                    coroutineScope.launch { drawerState.close() }
+                },
+            )
         },
-        floatingActionButton = {
-            if (selectedPaths.isEmpty() && uiState is BrowseUiState.Content) {
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.browse_add_content_description)) },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    onClick = { showAddChooser = true },
-                )
-            }
-        },
-    ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            if (clipboard != null) {
-                PasteBar(
-                    itemCount = clipboard!!.paths.size,
-                    onPaste = viewModel::onPasteRequested,
-                    onClear = viewModel::onClearClipboard,
-                )
-            }
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (val state = uiState) {
-                    is BrowseUiState.Loading -> LoadingContent()
-                    is BrowseUiState.PermissionRequired -> PermissionRequiredContent(
-                        onGrantAccess = { viewModel.onPermissionGranted() },
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                if (selectedPaths.isNotEmpty()) {
+                    SelectionTopBar(
+                        selectedCount = selectedPaths.size,
+                        onClear = viewModel::clearSelection,
+                        onCopy = viewModel::onCopySelected,
+                        onCut = viewModel::onCutSelected,
+                        onDelete = viewModel::onRequestDelete,
+                        onRename = {
+                            val state = uiState as? BrowseUiState.Content ?: return@SelectionTopBar
+                            val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
+                            viewModel.onRequestRename(item)
+                        },
+                        canRename = selectedPaths.size == 1,
                     )
-                    is BrowseUiState.Error -> ErrorContent(message = state.message)
-                    is BrowseUiState.Content -> FileListContent(
-                        items = state.items,
-                        selectedPaths = selectedPaths,
-                        onItemClick = { item ->
-                            when {
-                                selectedPaths.isNotEmpty() -> viewModel.toggleSelection(item.path)
-                                item.isDirectory -> viewModel.onDirectoryOpened(item.path)
-                                else -> onOpenFile(item)
+                } else {
+                    TopAppBar(
+                        title = {
+                            val breadcrumbs = (uiState as? BrowseUiState.Content)?.breadcrumbs.orEmpty()
+                            BreadcrumbBar(
+                                segments = breadcrumbs,
+                                onSegmentClick = { index ->
+                                    val path = "/" + breadcrumbs.take(index + 1).joinToString("/")
+                                    viewModel.onDirectoryOpened(path)
+                                },
+                            )
+                        },
+                        navigationIcon = {
+                            if (viewModel.canNavigateUp) {
+                                IconButton(onClick = { viewModel.onNavigateUp() }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(R.string.browse_navigate_up),
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Menu,
+                                        contentDescription = stringResource(R.string.browse_open_menu),
+                                    )
+                                }
                             }
                         },
-                        onItemLongClick = { item -> viewModel.toggleSelection(item.path) },
                     )
+                }
+            },
+            floatingActionButton = {
+                if (selectedPaths.isEmpty() && uiState is BrowseUiState.Content) {
+                    ExtendedFloatingActionButton(
+                        text = { Text(stringResource(R.string.browse_add_content_description)) },
+                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                        onClick = { showAddChooser = true },
+                    )
+                }
+            },
+        ) { paddingValues ->
+            Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+                if (clipboard != null) {
+                    PasteBar(
+                        itemCount = clipboard!!.paths.size,
+                        onPaste = viewModel::onPasteRequested,
+                        onClear = viewModel::onClearClipboard,
+                    )
+                }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (val state = uiState) {
+                        is BrowseUiState.Loading -> LoadingContent()
+                        is BrowseUiState.PermissionRequired -> PermissionRequiredContent(
+                            onGrantAccess = { viewModel.onPermissionGranted() },
+                        )
+                        is BrowseUiState.Error -> ErrorContent(message = state.message)
+                        is BrowseUiState.Content -> FileListContent(
+                            items = state.items,
+                            selectedPaths = selectedPaths,
+                            onItemClick = { item ->
+                                when {
+                                    selectedPaths.isNotEmpty() -> viewModel.toggleSelection(item.path)
+                                    item.isDirectory -> viewModel.onDirectoryOpened(item.path)
+                                    else -> onOpenFile(item)
+                                }
+                            },
+                            onItemLongClick = { item -> viewModel.toggleSelection(item.path) },
+                        )
+                    }
                 }
             }
         }
@@ -234,6 +268,44 @@ fun BrowseScreen(
             onDismiss = viewModel::onDismissDialog,
         )
         null -> Unit
+    }
+}
+
+@Composable
+private fun BrowseDrawerContent(
+    volumes: List<Volume>,
+    onVolumeClick: (Volume) -> Unit,
+) {
+    ModalDrawerSheet {
+        Text(
+            text = stringResource(R.string.browse_drawer_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(16.dp),
+        )
+        volumes.forEach { volume ->
+            NavigationDrawerItem(
+                label = { Text(volume.label) },
+                selected = false,
+                icon = {
+                    Icon(
+                        imageVector = if (volume.isRemovable) Icons.Filled.SdStorage else Icons.Filled.Storage,
+                        contentDescription = null,
+                    )
+                },
+                badge = {
+                    Text(
+                        stringResource(
+                            R.string.browse_volume_usage,
+                            formatFileSize(volume.totalBytes - volume.availableBytes),
+                            formatFileSize(volume.totalBytes),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                },
+                onClick = { onVolumeClick(volume) },
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+        }
     }
 }
 

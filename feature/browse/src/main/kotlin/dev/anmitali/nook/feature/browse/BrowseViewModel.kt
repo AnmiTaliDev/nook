@@ -9,6 +9,7 @@ import dev.anmitali.nook.core.domain.CreateDirectoryUseCase
 import dev.anmitali.nook.core.domain.CreateFileUseCase
 import dev.anmitali.nook.core.domain.DeleteFilesUseCase
 import dev.anmitali.nook.core.domain.FindFileConflictsUseCase
+import dev.anmitali.nook.core.domain.GetVolumesUseCase
 import dev.anmitali.nook.core.domain.ListFilesUseCase
 import dev.anmitali.nook.core.domain.MoveFilesUseCase
 import dev.anmitali.nook.core.domain.RenameFileUseCase
@@ -16,6 +17,7 @@ import dev.anmitali.nook.core.domain.RestoreFromTrashUseCase
 import dev.anmitali.nook.core.model.FileConflictPolicy
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
+import dev.anmitali.nook.core.model.Volume
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -32,6 +34,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class BrowseViewModel @Inject constructor(
     private val listFilesUseCase: ListFilesUseCase,
+    private val getVolumesUseCase: GetVolumesUseCase,
     private val findFileConflictsUseCase: FindFileConflictsUseCase,
     private val copyFilesUseCase: CopyFilesUseCase,
     private val moveFilesUseCase: MoveFilesUseCase,
@@ -60,11 +63,17 @@ class BrowseViewModel @Inject constructor(
     private val _pendingUndo = MutableStateFlow<UndoableDelete?>(null)
     val pendingUndo: StateFlow<UndoableDelete?> = _pendingUndo.asStateFlow()
 
+    private val _volumes = MutableStateFlow<List<Volume>>(emptyList())
+    val volumes: StateFlow<List<Volume>> = _volumes.asStateFlow()
+
     private var currentPath: String = Environment.getExternalStorageDirectory().absolutePath
     private var operationJob: Job? = null
 
     init {
         checkPermissionAndLoad(currentPath)
+        getVolumesUseCase()
+            .onEach { _volumes.value = it }
+            .launchIn(viewModelScope)
     }
 
     fun onDirectoryOpened(path: String) {
