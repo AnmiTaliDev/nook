@@ -10,17 +10,25 @@ import dev.anmitali.nook.core.domain.CreateFileUseCase
 import dev.anmitali.nook.core.domain.DeleteFilesUseCase
 import dev.anmitali.nook.core.domain.FindFileConflictsUseCase
 import dev.anmitali.nook.core.domain.GetVolumesUseCase
+import dev.anmitali.nook.core.domain.GroupFilesUseCase
 import dev.anmitali.nook.core.domain.ListFilesUseCase
 import dev.anmitali.nook.core.domain.MoveFilesUseCase
 import dev.anmitali.nook.core.domain.RenameFileUseCase
 import dev.anmitali.nook.core.domain.RestoreFromTrashUseCase
+import dev.anmitali.nook.core.domain.SearchFilesUseCase
+import dev.anmitali.nook.core.domain.SortFilesUseCase
 import dev.anmitali.nook.core.model.FileConflictPolicy
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
+import dev.anmitali.nook.core.model.GroupBy
+import dev.anmitali.nook.core.model.SortBy
+import dev.anmitali.nook.core.model.SortDirection
+import dev.anmitali.nook.core.model.SortOrder
 import dev.anmitali.nook.core.model.Volume
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +43,9 @@ import kotlinx.coroutines.launch
 class BrowseViewModel @Inject constructor(
     private val listFilesUseCase: ListFilesUseCase,
     private val getVolumesUseCase: GetVolumesUseCase,
+    private val sortFilesUseCase: SortFilesUseCase,
+    private val groupFilesUseCase: GroupFilesUseCase,
+    private val searchFilesUseCase: SearchFilesUseCase,
     private val findFileConflictsUseCase: FindFileConflictsUseCase,
     private val copyFilesUseCase: CopyFilesUseCase,
     private val moveFilesUseCase: MoveFilesUseCase,
@@ -66,8 +77,28 @@ class BrowseViewModel @Inject constructor(
     private val _volumes = MutableStateFlow<List<Volume>>(emptyList())
     val volumes: StateFlow<List<Volume>> = _volumes.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow(SortOrder())
+    val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
+
+    private val _groupBy = MutableStateFlow(GroupBy.NONE)
+    val groupBy: StateFlow<GroupBy> = _groupBy.asStateFlow()
+
+    private val _isSearchActive = MutableStateFlow(false)
+    val isSearchActive: StateFlow<Boolean> = _isSearchActive.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<FileItem>>(emptyList())
+    val searchResults: StateFlow<List<FileItem>> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
     private var currentPath: String = Environment.getExternalStorageDirectory().absolutePath
+    private var rawItems: List<FileItem> = emptyList()
     private var operationJob: Job? = null
+    private var searchJob: Job? = null
 
     init {
         checkPermissionAndLoad(currentPath)
@@ -102,6 +133,59 @@ class BrowseViewModel @Inject constructor(
 
     fun clearSelection() {
         _selectedPaths.value = emptySet()
+    }
+
+    fun onSortByChanged(sortBy: SortBy) {
+        _sortOrder.update { it.copy(sortBy = sortBy) }
+        applySortAndGroup()
+    }
+
+    fun onSortDirectionToggled() {
+        _sortOrder.update {
+            it.copy(direction = if (it.direction == SortDirection.ASCENDING) SortDirection.DESCENDING else SortDirection.ASCENDING)
+        }
+        applySortAndGroup()
+    }
+
+    fun onGroupByChanged(groupBy: GroupBy) {
+        _groupBy.value = groupBy
+        applySortAndGroup()
+    }
+
+    fun onSearchActivated() {
+        _isSearchActive.value = true
+    }
+
+    fun onSearchDismissed() {
+        _isSearchActive.value = false
+        _searchQuery.value = ""
+        _searchResults.value = emptyList()
+        _isSearching.value = false
+        searchJob?.cancel()
+    }
+
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            _isSearching.value = true
+            searchFilesUseCase(currentPath, query)
+                .onEach { results -> _searchResults.value = results }
+                .onCompletion { _isSearching.value = false }
+                .catch { _isSearching.value = false }
+                .launchIn(this)
+        }
+    }
+
+    fun onCancelSearch() {
+        searchJob?.cancel()
+        _isSearching.value = false
     }
 
     fun onCopySelected() {
@@ -250,6 +334,12 @@ class BrowseViewModel @Inject constructor(
 
     private fun refresh() = checkPermissionAndLoad(currentPath)
 
+    private fun applySortAndGroup() {
+        val state = _uiState.value as? BrowseUiState.Content ?: return
+        val sorted = sortFilesUseCase(rawItems, _sortOrder.value)
+        _uiState.value = state.copy(groups = groupFilesUseCase(sorted, _groupBy.value))
+    }
+
     private fun checkPermissionAndLoad(path: String) {
         if (!Environment.isExternalStorageManager()) {
             _uiState.value = BrowseUiState.PermissionRequired
@@ -260,10 +350,12 @@ class BrowseViewModel @Inject constructor(
         _uiState.value = BrowseUiState.Loading
         listFilesUseCase(path)
             .onEach { items ->
+                rawItems = items
+                val sorted = sortFilesUseCase(items, _sortOrder.value)
                 _uiState.value = BrowseUiState.Content(
                     currentPath = path,
                     breadcrumbs = path.split(File.separatorChar).filter { it.isNotBlank() },
-                    items = items,
+                    groups = groupFilesUseCase(sorted, _groupBy.value),
                 )
             }
             .catch { throwable ->
@@ -272,3 +364,5 @@ class BrowseViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 }
+
+private const val SEARCH_DEBOUNCE_MILLIS = 300L

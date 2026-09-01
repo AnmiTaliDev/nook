@@ -32,20 +32,28 @@ import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -72,7 +80,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import dev.anmitali.nook.core.model.DateBucket
+import dev.anmitali.nook.core.model.FileGroup
+import dev.anmitali.nook.core.model.FileGroupLabel
 import dev.anmitali.nook.core.model.FileItem
+import dev.anmitali.nook.core.model.FileType
+import dev.anmitali.nook.core.model.GroupBy
+import dev.anmitali.nook.core.model.SortBy
+import dev.anmitali.nook.core.model.SortOrder
 import dev.anmitali.nook.core.model.Volume
 import java.text.DateFormat
 import java.util.Date
@@ -93,16 +108,23 @@ fun BrowseScreen(
     val operationProgress by viewModel.operationProgress.collectAsState()
     val pendingUndo by viewModel.pendingUndo.collectAsState()
     val volumes by viewModel.volumes.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+    val groupBy by viewModel.groupBy.collectAsState()
+    val isSearchActive by viewModel.isSearchActive.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddChooser by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
-    BackHandler(enabled = selectedPaths.isNotEmpty() || viewModel.canNavigateUp) {
-        if (selectedPaths.isNotEmpty()) {
-            viewModel.clearSelection()
-        } else {
-            viewModel.onNavigateUp()
+    BackHandler(enabled = isSearchActive || selectedPaths.isNotEmpty() || viewModel.canNavigateUp) {
+        when {
+            isSearchActive -> viewModel.onSearchDismissed()
+            selectedPaths.isNotEmpty() -> viewModel.clearSelection()
+            else -> viewModel.onNavigateUp()
         }
     }
 
@@ -135,8 +157,13 @@ fun BrowseScreen(
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                if (selectedPaths.isNotEmpty()) {
-                    SelectionTopBar(
+                when {
+                    isSearchActive -> SearchTopBar(
+                        query = searchQuery,
+                        onQueryChange = viewModel::onSearchQueryChanged,
+                        onClose = viewModel::onSearchDismissed,
+                    )
+                    selectedPaths.isNotEmpty() -> SelectionTopBar(
                         selectedCount = selectedPaths.size,
                         onClear = viewModel::clearSelection,
                         onCopy = viewModel::onCopySelected,
@@ -149,8 +176,7 @@ fun BrowseScreen(
                         },
                         canRename = selectedPaths.size == 1,
                     )
-                } else {
-                    TopAppBar(
+                    else -> TopAppBar(
                         title = {
                             val breadcrumbs = (uiState as? BrowseUiState.Content)?.breadcrumbs.orEmpty()
                             BreadcrumbBar(
@@ -178,11 +204,30 @@ fun BrowseScreen(
                                 }
                             }
                         },
+                        actions = {
+                            IconButton(onClick = viewModel::onSearchActivated) {
+                                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.browse_search_action))
+                            }
+                            Box {
+                                IconButton(onClick = { showSortMenu = true }) {
+                                    Icon(Icons.Filled.Sort, contentDescription = stringResource(R.string.browse_sort_action))
+                                }
+                                SortMenu(
+                                    expanded = showSortMenu,
+                                    onDismiss = { showSortMenu = false },
+                                    sortOrder = sortOrder,
+                                    groupBy = groupBy,
+                                    onSortByChanged = viewModel::onSortByChanged,
+                                    onDirectionToggle = viewModel::onSortDirectionToggled,
+                                    onGroupByChanged = viewModel::onGroupByChanged,
+                                )
+                            }
+                        },
                     )
                 }
             },
             floatingActionButton = {
-                if (selectedPaths.isEmpty() && uiState is BrowseUiState.Content) {
+                if (!isSearchActive && selectedPaths.isEmpty() && uiState is BrowseUiState.Content) {
                     ExtendedFloatingActionButton(
                         text = { Text(stringResource(R.string.browse_add_content_description)) },
                         icon = { Icon(Icons.Filled.Add, contentDescription = null) },
@@ -192,7 +237,7 @@ fun BrowseScreen(
             },
         ) { paddingValues ->
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-                if (clipboard != null) {
+                if (!isSearchActive && clipboard != null) {
                     PasteBar(
                         itemCount = clipboard!!.paths.size,
                         onPaste = viewModel::onPasteRequested,
@@ -200,24 +245,39 @@ fun BrowseScreen(
                     )
                 }
                 Box(modifier = Modifier.fillMaxSize()) {
-                    when (val state = uiState) {
-                        is BrowseUiState.Loading -> LoadingContent()
-                        is BrowseUiState.PermissionRequired -> PermissionRequiredContent(
-                            onGrantAccess = { viewModel.onPermissionGranted() },
-                        )
-                        is BrowseUiState.Error -> ErrorContent(message = state.message)
-                        is BrowseUiState.Content -> FileListContent(
-                            items = state.items,
-                            selectedPaths = selectedPaths,
+                    if (isSearchActive) {
+                        SearchResultsContent(
+                            results = searchResults,
+                            isSearching = isSearching,
                             onItemClick = { item ->
-                                when {
-                                    selectedPaths.isNotEmpty() -> viewModel.toggleSelection(item.path)
-                                    item.isDirectory -> viewModel.onDirectoryOpened(item.path)
-                                    else -> onOpenFile(item)
+                                if (item.isDirectory) {
+                                    viewModel.onSearchDismissed()
+                                    viewModel.onDirectoryOpened(item.path)
+                                } else {
+                                    onOpenFile(item)
                                 }
                             },
-                            onItemLongClick = { item -> viewModel.toggleSelection(item.path) },
                         )
+                    } else {
+                        when (val state = uiState) {
+                            is BrowseUiState.Loading -> LoadingContent()
+                            is BrowseUiState.PermissionRequired -> PermissionRequiredContent(
+                                onGrantAccess = { viewModel.onPermissionGranted() },
+                            )
+                            is BrowseUiState.Error -> ErrorContent(message = state.message)
+                            is BrowseUiState.Content -> FileListContent(
+                                groups = state.groups,
+                                selectedPaths = selectedPaths,
+                                onItemClick = { item ->
+                                    when {
+                                        selectedPaths.isNotEmpty() -> viewModel.toggleSelection(item.path)
+                                        item.isDirectory -> viewModel.onDirectoryOpened(item.path)
+                                        else -> onOpenFile(item)
+                                    }
+                                },
+                                onItemLongClick = { item -> viewModel.toggleSelection(item.path) },
+                            )
+                        }
                     }
                 }
             }
@@ -305,6 +365,105 @@ private fun BrowseDrawerContent(
                 onClick = { onVolumeClick(volume) },
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun SearchTopBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text(stringResource(R.string.browse_search_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.browse_search_close),
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun SortMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    sortOrder: SortOrder,
+    groupBy: GroupBy,
+    onSortByChanged: (SortBy) -> Unit,
+    onDirectionToggle: () -> Unit,
+    onGroupByChanged: (GroupBy) -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        listOf(
+            SortBy.NAME to R.string.browse_sort_by_name,
+            SortBy.DATE_MODIFIED to R.string.browse_sort_by_date,
+            SortBy.SIZE to R.string.browse_sort_by_size,
+            SortBy.TYPE to R.string.browse_sort_by_type,
+        ).forEach { (sortBy, labelRes) ->
+            DropdownMenuItem(
+                text = { Text(stringResource(labelRes)) },
+                leadingIcon = { RadioButton(selected = sortOrder.sortBy == sortBy, onClick = null) },
+                onClick = { onSortByChanged(sortBy) },
+            )
+        }
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.browse_sort_direction_toggle)) },
+            onClick = onDirectionToggle,
+        )
+        HorizontalDivider()
+        listOf(
+            GroupBy.NONE to R.string.browse_group_none,
+            GroupBy.TYPE to R.string.browse_group_by_type,
+            GroupBy.DATE to R.string.browse_group_by_date,
+        ).forEach { (group, labelRes) ->
+            DropdownMenuItem(
+                text = { Text(stringResource(labelRes)) },
+                leadingIcon = { RadioButton(selected = groupBy == group, onClick = null) },
+                onClick = { onGroupByChanged(group) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchResultsContent(
+    results: List<FileItem>,
+    isSearching: Boolean,
+    onItemClick: (FileItem) -> Unit,
+) {
+    if (results.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (isSearching) {
+                CircularProgressIndicator()
+            } else {
+                Text(stringResource(R.string.browse_search_no_results))
+            }
+        }
+        return
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (isSearching) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        LazyColumn {
+            items(results, key = { it.path }) { item ->
+                FileRow(item = item, isSelected = false, onClick = { onItemClick(item) }, onLongClick = {})
+            }
         }
     }
 }
@@ -435,12 +594,12 @@ private fun PermissionRequiredContent(onGrantAccess: () -> Unit) {
 
 @Composable
 private fun FileListContent(
-    items: List<FileItem>,
+    groups: List<FileGroup>,
     selectedPaths: Set<String>,
     onItemClick: (FileItem) -> Unit,
     onItemLongClick: (FileItem) -> Unit,
 ) {
-    if (items.isEmpty()) {
+    if (groups.all { it.items.isEmpty() }) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(text = stringResource(R.string.browse_empty_directory))
         }
@@ -448,15 +607,53 @@ private fun FileListContent(
     }
 
     LazyColumn {
-        items(items, key = { it.path }) { item ->
-            FileRow(
-                item = item,
-                isSelected = item.path in selectedPaths,
-                onClick = { onItemClick(item) },
-                onLongClick = { onItemLongClick(item) },
-            )
+        groups.forEach { group ->
+            if (group.label != FileGroupLabel.None) {
+                item(key = "header-${group.label}") {
+                    Text(
+                        text = groupLabelText(group.label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+            items(group.items, key = { it.path }) { item ->
+                FileRow(
+                    item = item,
+                    isSelected = item.path in selectedPaths,
+                    onClick = { onItemClick(item) },
+                    onLongClick = { onItemLongClick(item) },
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun groupLabelText(label: FileGroupLabel): String = when (label) {
+    FileGroupLabel.None -> ""
+    is FileGroupLabel.Type -> stringResource(fileTypeLabelRes(label.fileType))
+    is FileGroupLabel.Date -> stringResource(dateBucketLabelRes(label.bucket))
+}
+
+private fun fileTypeLabelRes(type: FileType): Int = when (type) {
+    FileType.DIRECTORY -> R.string.browse_group_type_directory
+    FileType.IMAGE -> R.string.browse_group_type_image
+    FileType.VIDEO -> R.string.browse_group_type_video
+    FileType.AUDIO -> R.string.browse_group_type_audio
+    FileType.DOCUMENT -> R.string.browse_group_type_document
+    FileType.ARCHIVE -> R.string.browse_group_type_archive
+    FileType.APK -> R.string.browse_group_type_apk
+    FileType.TEXT -> R.string.browse_group_type_text
+    FileType.OTHER -> R.string.browse_group_type_other
+}
+
+private fun dateBucketLabelRes(bucket: DateBucket): Int = when (bucket) {
+    DateBucket.TODAY -> R.string.browse_group_date_today
+    DateBucket.YESTERDAY -> R.string.browse_group_date_yesterday
+    DateBucket.THIS_WEEK -> R.string.browse_group_date_this_week
+    DateBucket.OLDER -> R.string.browse_group_date_older
 }
 
 @Composable

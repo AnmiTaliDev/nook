@@ -48,4 +48,32 @@
 
     <string name="browse_operation_progress_title">Working…</string>
     <string name="browse_operation_cancel">Cancel</string>
+
+    <string name="browse_search_action">Search</string>
+    <string name="browse_search_hint">Search this folder</string>
+    <string name="browse_search_close">Close search</string>
+    <string name="browse_search_no_results">No matches found</string>
+    <string name="browse_sort_action">Sort and group</string>
+    <string name="browse_sort_by_name">Name</string>
+    <string name="browse_sort_by_date">Date modified</string>
+    <string name="browse_sort_by_size">Size</string>
+    <string name="browse_sort_by_type">Type</string>
+    <string name="browse_sort_direction_toggle">Reverse sort direction</string>
+    <string name="browse_group_none">No grouping</string>
+    <string name="browse_group_by_type">Group by type</string>
+    <string name="browse_group_by_date">Group by date</string>
+
+    <string name="browse_group_type_directory">Folders</string>
+    <string name="browse_group_type_image">Images</string>
+    <string name="browse_group_type_video">Videos</string>
+    <string name="browse_group_type_audio">Audio</string>
+    <string name="browse_group_type_document">Documents</string>
+    <string name="browse_group_type_archive">Archives</string>
+    <string name="browse_group_type_apk">APK files</string>
+    <string name="browse_group_type_text">Text</string>
+    <string name="browse_group_type_other">Other</string>
+    <string name="browse_group_date_today">Today</string>
+    <string name="browse_group_date_yesterday">Yesterday</string>
+    <string name="browse_group_date_this_week">This week</string>
+    <string name="browse_group_date_older">Older</string>
 </resources>
