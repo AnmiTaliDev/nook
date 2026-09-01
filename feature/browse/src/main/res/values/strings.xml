@@ -10,4 +10,39 @@
     <string name="browse_file_content_description">File</string>
     <string name="browse_breadcrumb_content_description">Go to %1$s</string>
     <string name="browse_item_size_directory">%1$d items</string>
+
+    <string name="browse_selected_count">%1$d selected</string>
+    <string name="browse_clear_selection">Clear selection</string>
+    <string name="browse_action_copy">Copy</string>
+    <string name="browse_action_cut">Cut</string>
+    <string name="browse_action_delete">Delete</string>
+    <string name="browse_action_rename">Rename</string>
+    <string name="browse_action_paste">Paste %1$d item(s) here</string>
+    <string name="browse_add_content_description">Add</string>
+    <string name="browse_new_folder">New folder</string>
+    <string name="browse_new_file">New file</string>
+    <string name="browse_create_folder_title">New folder</string>
+    <string name="browse_create_file_title">New file</string>
+    <string name="browse_name_hint">Name</string>
+    <string name="browse_create_confirm">Create</string>
+    <string name="browse_cancel">Cancel</string>
+
+    <string name="browse_rename_title">Rename</string>
+    <string name="browse_rename_confirm">Rename</string>
+
+    <string name="browse_delete_confirm_title">Delete %1$d item(s)?</string>
+    <string name="browse_delete_confirm_message">Deleted items are moved to trash and can be restored.</string>
+    <string name="browse_delete_confirm_action">Delete</string>
+
+    <string name="browse_conflict_title">%1$d item(s) already exist</string>
+    <string name="browse_conflict_message">Some items in the destination folder have the same name. Choose what to do.</string>
+    <string name="browse_conflict_overwrite">Overwrite</string>
+    <string name="browse_conflict_skip">Skip</string>
+    <string name="browse_conflict_keep_both">Keep both</string>
+
+    <string name="browse_undo_delete_message">Item(s) deleted</string>
+    <string name="browse_undo_action">Undo</string>
+
+    <string name="browse_operation_progress_title">Working…</string>
+    <string name="browse_operation_cancel">Cancel</string>
 </resources>

@@ -4,11 +4,14 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,22 +20,41 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -54,59 +76,219 @@ fun BrowseScreen(
     viewModel: BrowseViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val selectedPaths by viewModel.selectedPaths.collectAsState()
+    val clipboard by viewModel.clipboard.collectAsState()
+    val dialog by viewModel.dialog.collectAsState()
+    val operationProgress by viewModel.operationProgress.collectAsState()
+    val pendingUndo by viewModel.pendingUndo.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showAddChooser by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = viewModel.canNavigateUp) {
-        viewModel.onNavigateUp()
+    BackHandler(enabled = selectedPaths.isNotEmpty() || viewModel.canNavigateUp) {
+        if (selectedPaths.isNotEmpty()) {
+            viewModel.clearSelection()
+        } else {
+            viewModel.onNavigateUp()
+        }
+    }
+
+    val undoMessage = stringResource(R.string.browse_undo_delete_message)
+    val undoAction = stringResource(R.string.browse_undo_action)
+    LaunchedEffect(pendingUndo) {
+        if (pendingUndo != null) {
+            val result = snackbarHostState.showSnackbar(undoMessage, actionLabel = undoAction)
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.onUndoDelete()
+            } else {
+                viewModel.onDismissUndo()
+            }
+        }
     }
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    val breadcrumbs = (uiState as? BrowseUiState.Content)?.breadcrumbs.orEmpty()
-                    BreadcrumbBar(
-                        segments = breadcrumbs,
-                        onSegmentClick = { index ->
-                            val path = "/" + breadcrumbs.take(index + 1).joinToString("/")
-                            viewModel.onDirectoryOpened(path)
-                        },
-                    )
-                },
-                navigationIcon = {
-                    if (viewModel.canNavigateUp) {
-                        IconButton(onClick = { viewModel.onNavigateUp() }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.browse_navigate_up),
-                            )
-                        }
-                    }
-                },
-            )
-        },
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-        ) {
-            when (val state = uiState) {
-                is BrowseUiState.Loading -> LoadingContent()
-                is BrowseUiState.PermissionRequired -> PermissionRequiredContent(
-                    onGrantAccess = { viewModel.onPermissionGranted() },
+            if (selectedPaths.isNotEmpty()) {
+                SelectionTopBar(
+                    selectedCount = selectedPaths.size,
+                    onClear = viewModel::clearSelection,
+                    onCopy = viewModel::onCopySelected,
+                    onCut = viewModel::onCutSelected,
+                    onDelete = viewModel::onRequestDelete,
+                    onRename = {
+                        val state = uiState as? BrowseUiState.Content ?: return@SelectionTopBar
+                        val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
+                        viewModel.onRequestRename(item)
+                    },
+                    canRename = selectedPaths.size == 1,
                 )
-                is BrowseUiState.Error -> ErrorContent(message = state.message)
-                is BrowseUiState.Content -> FileListContent(
-                    items = state.items,
-                    onItemClick = { item ->
-                        if (item.isDirectory) {
-                            viewModel.onDirectoryOpened(item.path)
-                        } else {
-                            onOpenFile(item)
+            } else {
+                TopAppBar(
+                    title = {
+                        val breadcrumbs = (uiState as? BrowseUiState.Content)?.breadcrumbs.orEmpty()
+                        BreadcrumbBar(
+                            segments = breadcrumbs,
+                            onSegmentClick = { index ->
+                                val path = "/" + breadcrumbs.take(index + 1).joinToString("/")
+                                viewModel.onDirectoryOpened(path)
+                            },
+                        )
+                    },
+                    navigationIcon = {
+                        if (viewModel.canNavigateUp) {
+                            IconButton(onClick = { viewModel.onNavigateUp() }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.browse_navigate_up),
+                                )
+                            }
                         }
                     },
                 )
+            }
+        },
+        floatingActionButton = {
+            if (selectedPaths.isEmpty() && uiState is BrowseUiState.Content) {
+                ExtendedFloatingActionButton(
+                    text = { Text(stringResource(R.string.browse_add_content_description)) },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    onClick = { showAddChooser = true },
+                )
+            }
+        },
+    ) { paddingValues ->
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (clipboard != null) {
+                PasteBar(
+                    itemCount = clipboard!!.paths.size,
+                    onPaste = viewModel::onPasteRequested,
+                    onClear = viewModel::onClearClipboard,
+                )
+            }
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val state = uiState) {
+                    is BrowseUiState.Loading -> LoadingContent()
+                    is BrowseUiState.PermissionRequired -> PermissionRequiredContent(
+                        onGrantAccess = { viewModel.onPermissionGranted() },
+                    )
+                    is BrowseUiState.Error -> ErrorContent(message = state.message)
+                    is BrowseUiState.Content -> FileListContent(
+                        items = state.items,
+                        selectedPaths = selectedPaths,
+                        onItemClick = { item ->
+                            when {
+                                selectedPaths.isNotEmpty() -> viewModel.toggleSelection(item.path)
+                                item.isDirectory -> viewModel.onDirectoryOpened(item.path)
+                                else -> onOpenFile(item)
+                            }
+                        },
+                        onItemLongClick = { item -> viewModel.toggleSelection(item.path) },
+                    )
+                }
+            }
+        }
+    }
+
+    if (showAddChooser) {
+        AddEntryChooserDialog(
+            onDismiss = { showAddChooser = false },
+            onChooseFolder = {
+                showAddChooser = false
+                viewModel.onRequestCreateEntry(CreateEntryType.FOLDER)
+            },
+            onChooseFile = {
+                showAddChooser = false
+                viewModel.onRequestCreateEntry(CreateEntryType.FILE)
+            },
+        )
+    }
+
+    operationProgress?.let { progress ->
+        OperationProgressDialog(progress = progress, onCancel = viewModel::onCancelOperation)
+    }
+
+    when (val currentDialog = dialog) {
+        is BrowseDialog.CreateEntry -> CreateEntryDialog(
+            type = currentDialog.type,
+            onDismiss = viewModel::onDismissDialog,
+            onConfirm = viewModel::onConfirmCreateEntry,
+        )
+        is BrowseDialog.Rename -> RenameDialog(
+            currentName = currentDialog.item.name,
+            onDismiss = viewModel::onDismissDialog,
+            onConfirm = viewModel::onConfirmRename,
+        )
+        is BrowseDialog.DeleteConfirmation -> DeleteConfirmationDialog(
+            itemCount = currentDialog.paths.size,
+            onDismiss = viewModel::onDismissDialog,
+            onConfirm = viewModel::onConfirmDelete,
+        )
+        is BrowseDialog.Conflict -> ConflictDialog(
+            conflictingNames = currentDialog.conflictingNames,
+            onDismiss = viewModel::onDismissDialog,
+            onResolve = viewModel::onConflictResolved,
+        )
+        is BrowseDialog.OperationError -> OperationErrorDialog(
+            message = currentDialog.message,
+            onDismiss = viewModel::onDismissDialog,
+        )
+        null -> Unit
+    }
+}
+
+@Composable
+private fun SelectionTopBar(
+    selectedCount: Int,
+    onClear: () -> Unit,
+    onCopy: () -> Unit,
+    onCut: () -> Unit,
+    onDelete: () -> Unit,
+    onRename: () -> Unit,
+    canRename: Boolean,
+) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.browse_selected_count, selectedCount)) },
+        navigationIcon = {
+            IconButton(onClick = onClear) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.browse_clear_selection))
+            }
+        },
+        actions = {
+            if (canRename) {
+                IconButton(onClick = onRename) {
+                    Icon(Icons.Filled.DriveFileRenameOutline, contentDescription = stringResource(R.string.browse_action_rename))
+                }
+            }
+            IconButton(onClick = onCopy) {
+                Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.browse_action_copy))
+            }
+            IconButton(onClick = onCut) {
+                Icon(Icons.Filled.ContentCut, contentDescription = stringResource(R.string.browse_action_cut))
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.browse_action_delete))
+            }
+        },
+    )
+}
+
+@Composable
+private fun PasteBar(itemCount: Int, onPaste: () -> Unit, onClear: () -> Unit) {
+    Surface(tonalElevation = 2.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onPaste) {
+                Icon(Icons.Filled.ContentPaste, contentDescription = null)
+                Text(stringResource(R.string.browse_action_paste, itemCount))
+            }
+            IconButton(onClick = onClear) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.browse_clear_selection))
             }
         }
     }
@@ -182,7 +364,9 @@ private fun PermissionRequiredContent(onGrantAccess: () -> Unit) {
 @Composable
 private fun FileListContent(
     items: List<FileItem>,
+    selectedPaths: Set<String>,
     onItemClick: (FileItem) -> Unit,
+    onItemLongClick: (FileItem) -> Unit,
 ) {
     if (items.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -193,24 +377,42 @@ private fun FileListContent(
 
     LazyColumn {
         items(items, key = { it.path }) { item ->
-            FileRow(item = item, onClick = { onItemClick(item) })
+            FileRow(
+                item = item,
+                isSelected = item.path in selectedPaths,
+                onClick = { onItemClick(item) },
+                onLongClick = { onItemLongClick(item) },
+            )
         }
     }
 }
 
 @Composable
-private fun FileRow(item: FileItem, onClick: () -> Unit) {
+private fun FileRow(item: FileItem, isSelected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     val folderDescription = stringResource(R.string.browse_folder_content_description)
     val fileDescription = stringResource(R.string.browse_file_content_description)
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            ),
         headlineContent = { Text(text = item.name) },
         supportingContent = { Text(text = formatSubtitle(item)) },
         leadingContent = {
-            Icon(
-                imageVector = if (item.isDirectory) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile,
-                contentDescription = if (item.isDirectory) folderDescription else fileDescription,
-            )
+            if (isSelected) {
+                Icon(Icons.Filled.CheckCircle, contentDescription = null)
+            } else {
+                Icon(
+                    imageVector = if (item.isDirectory) Icons.Filled.Folder else Icons.AutoMirrored.Filled.InsertDriveFile,
+                    contentDescription = if (item.isDirectory) folderDescription else fileDescription,
+                )
+            }
+        },
+        trailingContent = {
+            if (isSelected) {
+                Icon(Icons.Filled.Check, contentDescription = null)
+            }
         },
     )
 }
