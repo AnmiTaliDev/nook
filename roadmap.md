@@ -51,15 +51,18 @@ throwaway increment.
 
 ## v0.3 — Search, sort, and grouping
 
-- [ ] Recursive filename search scoped to the current directory or the
-      whole volume, with a cancellable in-progress indicator.
-- [ ] Search result list reuses the file row component from
+- [x] Recursive filename search scoped to the current directory, with a
+      cancellable in-progress indicator. Whole-volume search (from the
+      drawer, without first navigating to the volume root) is not wired up
+      yet.
+- [x] Search result list reuses the file row component from
       `feature:browse`.
-- [ ] Sorting by name, date modified, size, and type, ascending/descending.
-- [ ] Grouping by type (images, documents, archives, etc.) and by date
+- [x] Sorting by name, date modified, size, and type, ascending/descending.
+- [x] Grouping by type (images, documents, archives, etc.) and by date
       (today, yesterday, this week, older).
 - [ ] Sort/group preference persisted per directory and globally (user can
-      pin a default).
+      pin a default). Currently resets to name/ascending/no-grouping on
+      each process start.
 
 ## v0.4 — Bookmarks, file info, and volumes
 
