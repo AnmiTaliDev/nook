@@ -27,6 +27,23 @@ class LocalFileSource @Inject constructor(
         emit(children.map { it.toFileItem() }.sortedWith(directoryFirstThenName))
     }.flowOn(Dispatchers.IO)
 
+    override fun search(rootPath: String, query: String): Flow<List<FileItem>> = flow {
+        val results = mutableListOf<FileItem>()
+        var sinceLastEmit = 0
+        for (file in File(rootPath).walkTopDown()) {
+            if (file.path == rootPath) continue
+            if (file.name.contains(query, ignoreCase = true)) {
+                results += file.toFileItem()
+                sinceLastEmit++
+                if (sinceLastEmit >= SEARCH_EMIT_BATCH_SIZE) {
+                    emit(results.toList())
+                    sinceLastEmit = 0
+                }
+            }
+        }
+        emit(results.toList())
+    }.flowOn(Dispatchers.IO)
+
     override fun listVolumes(): Flow<List<Volume>> = flow {
         val storageManager = context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
         val volumes = storageManager.storageVolumes.mapNotNull { volume ->
@@ -136,6 +153,7 @@ class LocalFileSource @Inject constructor(
 }
 
 private const val TRASH_DIRECTORY_NAME = ".nook_trash"
+private const val SEARCH_EMIT_BATCH_SIZE = 20
 
 private suspend fun kotlinx.coroutines.flow.FlowCollector<FileOperationProgress>.emitProgressAnd(
     sources: List<File>,
