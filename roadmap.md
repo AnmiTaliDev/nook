@@ -32,17 +32,19 @@ throwaway increment.
 
 ## v0.2 — File operations
 
-- [ ] Copy, move, rename, delete for files and directories.
-- [ ] Conflict resolution UI when a destination name already exists:
-      overwrite, skip, keep both, rename.
-- [ ] Multi-select mode in the file list (long-press to enter, checkboxes,
-      select-all/none) with batch copy/move/delete.
-- [ ] Progress reporting for long-running operations (determinate progress,
-      cancel action), backed by a foreground service or `WorkManager` for
-      operations that must survive process death.
-- [ ] Undo action (snackbar) for delete, where reversible (move to a
-      temporary holding area instead of hard delete when supported).
-- [ ] Create new file / new folder actions.
+- [x] Copy, move, rename, delete for files and directories.
+- [x] Conflict resolution UI when a destination name already exists:
+      overwrite, skip, or keep both (auto-renamed), applied per batch.
+- [x] Multi-select mode in the file list (long-press to enter, tap to
+      toggle) with batch copy/cut/paste/delete.
+- [x] Progress reporting for long-running operations (determinate progress,
+      cancel action).
+- [ ] Long-running operations backed by a foreground service or
+      `WorkManager` so they survive process death (currently scoped to
+      `viewModelScope`, lost if the process is killed mid-operation).
+- [x] Undo action (snackbar) for delete: deleted items move to a
+      `.nook_trash` holding directory and can be restored.
+- [x] Create new file / new folder actions.
 - [ ] Internal action-registry shape for file operations (registry is only
       exposed publicly in v0.9, but operations are implemented behind an
       interface from the start so v0.9 does not require a rewrite).
