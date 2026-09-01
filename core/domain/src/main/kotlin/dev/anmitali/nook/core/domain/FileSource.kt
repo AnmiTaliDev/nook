@@ -11,6 +11,8 @@ interface FileSource {
 
     fun listVolumes(): Flow<List<Volume>>
 
+    fun search(rootPath: String, query: String): Flow<List<FileItem>>
+
     suspend fun findConflicts(sourcePaths: List<String>, destinationDirectory: String): List<String>
 
     fun copy(

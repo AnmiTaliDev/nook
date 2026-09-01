@@ -11,6 +11,7 @@ class FakeFileSource(
     private val directories: Map<String, List<FileItem>> = emptyMap(),
     private val volumes: List<Volume> = emptyList(),
     private val existingNames: Set<String> = emptySet(),
+    private val searchResults: List<FileItem> = emptyList(),
 ) : FileSource {
 
     var lastCopyCall: Triple<List<String>, String, FileConflictPolicy>? = null
@@ -26,6 +27,8 @@ class FakeFileSource(
         flowOf(directories[path].orEmpty())
 
     override fun listVolumes(): Flow<List<Volume>> = flowOf(volumes)
+
+    override fun search(rootPath: String, query: String): Flow<List<FileItem>> = flowOf(searchResults)
 
     override suspend fun findConflicts(sourcePaths: List<String>, destinationDirectory: String): List<String> =
         sourcePaths.map { it.substringAfterLast('/') }.filter { it in existingNames }
