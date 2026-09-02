@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="archive_navigate_up">Navigate up</string>
+    <string name="archive_empty">This archive is empty</string>
+    <string name="archive_error_title">Could not read this archive</string>
+    <string name="archive_folder_content_description">Folder</string>
+    <string name="archive_file_content_description">File</string>
+</resources>
