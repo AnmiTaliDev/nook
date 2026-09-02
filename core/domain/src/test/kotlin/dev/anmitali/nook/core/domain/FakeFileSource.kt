@@ -1,6 +1,7 @@
 package dev.anmitali.nook.core.domain
 
 import dev.anmitali.nook.core.model.FileConflictPolicy
+import dev.anmitali.nook.core.model.FileDetails
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
 import dev.anmitali.nook.core.model.Volume
@@ -12,6 +13,7 @@ class FakeFileSource(
     private val volumes: List<Volume> = emptyList(),
     private val existingNames: Set<String> = emptySet(),
     private val searchResults: List<FileItem> = emptyList(),
+    private val fileDetails: FileDetails? = null,
 ) : FileSource {
 
     var lastCopyCall: Triple<List<String>, String, FileConflictPolicy>? = null
@@ -29,6 +31,9 @@ class FakeFileSource(
     override fun listVolumes(): Flow<List<Volume>> = flowOf(volumes)
 
     override fun search(rootPath: String, query: String): Flow<List<FileItem>> = flowOf(searchResults)
+
+    override suspend fun getFileDetails(path: String): FileDetails =
+        fileDetails ?: error("No fake FileDetails configured")
 
     override suspend fun findConflicts(sourcePaths: List<String>, destinationDirectory: String): List<String> =
         sourcePaths.map { it.substringAfterLast('/') }.filter { it in existingNames }

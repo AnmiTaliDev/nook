@@ -1,6 +1,7 @@
 package dev.anmitali.nook.core.domain
 
 import dev.anmitali.nook.core.model.FileConflictPolicy
+import dev.anmitali.nook.core.model.FileDetails
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
 import dev.anmitali.nook.core.model.Volume
@@ -12,6 +13,8 @@ interface FileSource {
     fun listVolumes(): Flow<List<Volume>>
 
     fun search(rootPath: String, query: String): Flow<List<FileItem>>
+
+    suspend fun getFileDetails(path: String): FileDetails
 
     suspend fun findConflicts(sourcePaths: List<String>, destinationDirectory: String): List<String>
 
