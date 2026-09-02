@@ -12,7 +12,6 @@
     <string name="browse_folder_content_description">Folder</string>
     <string name="browse_file_content_description">File</string>
     <string name="browse_breadcrumb_content_description">Go to %1$s</string>
-    <string name="browse_item_size_directory">%1$d items</string>
 
     <string name="browse_selected_count">%1$d selected</string>
     <string name="browse_clear_selection">Clear selection</string>
@@ -90,8 +89,6 @@
     <string name="browse_bookmarks_title">Bookmarks</string>
     <string name="browse_bookmark_add">Add bookmark</string>
     <string name="browse_bookmark_remove">Remove bookmark</string>
-    <string name="browse_bookmark_added">Bookmarked "%1$s"</string>
-    <string name="browse_bookmark_removed">Bookmark removed</string>
 
     <string name="browse_low_storage_warning">Storage is running low on %1$s (%2$s free)</string>
 
