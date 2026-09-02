@@ -66,15 +66,17 @@ throwaway increment.
 
 ## v0.4 — Bookmarks, file info, and volumes
 
-- [ ] Bookmark/favorite any directory; bookmarks shown in a dedicated
-      section of the navigation drawer or rail.
-- [ ] File/folder info sheet: full path, size (recursive for folders,
+- [x] Bookmark/favorite any directory; bookmarks shown in a dedicated
+      section of the navigation drawer, persisted via SharedPreferences +
+      kotlinx.serialization.
+- [x] File/folder info sheet: full path, size (recursive for folders,
       computed asynchronously), created/modified dates, MIME type, POSIX
       permissions, owner where available.
-- [ ] Volume switcher: internal storage and removable SD card (when
+- [x] Volume switcher: internal storage and removable SD card (when
       present) listed with free/used space, exposed through
       `GetVolumesUseCase`.
-- [ ] Empty states and low-storage warnings.
+- [x] Empty states and low-storage warnings (banner shown when the current
+      volume has under 10% free space).
 
 ## v0.5 — Archives
 
