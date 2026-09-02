@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -30,12 +32,14 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
@@ -80,7 +84,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import dev.anmitali.nook.core.model.Bookmark
 import dev.anmitali.nook.core.model.DateBucket
+import dev.anmitali.nook.core.model.FileDetails
 import dev.anmitali.nook.core.model.FileGroup
 import dev.anmitali.nook.core.model.FileGroupLabel
 import dev.anmitali.nook.core.model.FileItem
@@ -114,11 +120,17 @@ fun BrowseScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+    val bookmarks by viewModel.bookmarks.collectAsState()
+    val fileDetails by viewModel.fileDetails.collectAsState()
+    val isLoadingDetails by viewModel.isLoadingDetails.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddChooser by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+    val lowStorageVolume = (uiState as? BrowseUiState.Content)?.currentPath?.let { path ->
+        volumes.filter { path.startsWith(it.rootPath) }.maxByOrNull { it.rootPath.length }
+    }?.takeIf { it.totalBytes > 0 && it.availableBytes.toDouble() / it.totalBytes < LOW_STORAGE_THRESHOLD }
 
     BackHandler(enabled = isSearchActive || selectedPaths.isNotEmpty() || viewModel.canNavigateUp) {
         when {
@@ -147,10 +159,16 @@ fun BrowseScreen(
         drawerContent = {
             BrowseDrawerContent(
                 volumes = volumes,
+                bookmarks = bookmarks,
                 onVolumeClick = { volume ->
                     viewModel.onDirectoryOpened(volume.rootPath)
                     coroutineScope.launch { drawerState.close() }
                 },
+                onBookmarkClick = { bookmark ->
+                    viewModel.onDirectoryOpened(bookmark.path)
+                    coroutineScope.launch { drawerState.close() }
+                },
+                onBookmarkRemove = { bookmark -> viewModel.onRemoveBookmark(bookmark.path) },
             )
         },
     ) {
@@ -173,6 +191,11 @@ fun BrowseScreen(
                             val state = uiState as? BrowseUiState.Content ?: return@SelectionTopBar
                             val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
                             viewModel.onRequestRename(item)
+                        },
+                        onInfo = {
+                            val state = uiState as? BrowseUiState.Content ?: return@SelectionTopBar
+                            val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
+                            viewModel.onRequestInfo(item)
                         },
                         canRename = selectedPaths.size == 1,
                     )
@@ -205,6 +228,18 @@ fun BrowseScreen(
                             }
                         },
                         actions = {
+                            val contentState = uiState as? BrowseUiState.Content
+                            if (contentState != null) {
+                                val isBookmarked = bookmarks.any { it.path == contentState.currentPath }
+                                IconButton(onClick = viewModel::onToggleBookmark) {
+                                    Icon(
+                                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                                        contentDescription = stringResource(
+                                            if (isBookmarked) R.string.browse_bookmark_remove else R.string.browse_bookmark_add,
+                                        ),
+                                    )
+                                }
+                            }
                             IconButton(onClick = viewModel::onSearchActivated) {
                                 Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.browse_search_action))
                             }
@@ -237,6 +272,9 @@ fun BrowseScreen(
             },
         ) { paddingValues ->
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+                if (!isSearchActive && lowStorageVolume != null) {
+                    LowStorageBanner(volume = lowStorageVolume)
+                }
                 if (!isSearchActive && clipboard != null) {
                     PasteBar(
                         itemCount = clipboard!!.paths.size,
@@ -318,6 +356,12 @@ fun BrowseScreen(
             onDismiss = viewModel::onDismissDialog,
             onConfirm = viewModel::onConfirmDelete,
         )
+        is BrowseDialog.Info -> InfoDialog(
+            itemName = currentDialog.item.name,
+            details = fileDetails,
+            isLoading = isLoadingDetails,
+            onDismiss = viewModel::onDismissDialog,
+        )
         is BrowseDialog.Conflict -> ConflictDialog(
             conflictingNames = currentDialog.conflictingNames,
             onDismiss = viewModel::onDismissDialog,
@@ -334,7 +378,10 @@ fun BrowseScreen(
 @Composable
 private fun BrowseDrawerContent(
     volumes: List<Volume>,
+    bookmarks: List<Bookmark>,
     onVolumeClick: (Volume) -> Unit,
+    onBookmarkClick: (Bookmark) -> Unit,
+    onBookmarkRemove: (Bookmark) -> Unit,
 ) {
     ModalDrawerSheet {
         Text(
@@ -365,6 +412,31 @@ private fun BrowseDrawerContent(
                 onClick = { onVolumeClick(volume) },
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
+        }
+        if (bookmarks.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text(
+                text = stringResource(R.string.browse_bookmarks_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            bookmarks.forEach { bookmark ->
+                NavigationDrawerItem(
+                    label = { Text(bookmark.label) },
+                    selected = false,
+                    icon = { Icon(Icons.Filled.Bookmark, contentDescription = null) },
+                    badge = {
+                        IconButton(onClick = { onBookmarkRemove(bookmark) }) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.browse_bookmark_remove),
+                            )
+                        }
+                    },
+                    onClick = { onBookmarkClick(bookmark) },
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+            }
         }
     }
 }
@@ -476,6 +548,7 @@ private fun SelectionTopBar(
     onCut: () -> Unit,
     onDelete: () -> Unit,
     onRename: () -> Unit,
+    onInfo: () -> Unit,
     canRename: Boolean,
 ) {
     TopAppBar(
@@ -487,6 +560,9 @@ private fun SelectionTopBar(
         },
         actions = {
             if (canRename) {
+                IconButton(onClick = onInfo) {
+                    Icon(Icons.Filled.Info, contentDescription = stringResource(R.string.browse_action_info))
+                }
                 IconButton(onClick = onRename) {
                     Icon(Icons.Filled.DriveFileRenameOutline, contentDescription = stringResource(R.string.browse_action_rename))
                 }
@@ -502,6 +578,36 @@ private fun SelectionTopBar(
             }
         },
     )
+}
+
+private const val LOW_STORAGE_THRESHOLD = 0.1
+
+@Composable
+private fun LowStorageBanner(volume: Volume) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Text(
+                text = stringResource(
+                    R.string.browse_low_storage_warning,
+                    volume.label,
+                    formatFileSize(volume.availableBytes),
+                ),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
 }
 
 @Composable
@@ -696,7 +802,7 @@ private fun formatSubtitle(item: FileItem): String {
     }
 }
 
-private fun formatFileSize(bytes: Long): String {
+internal fun formatFileSize(bytes: Long): String {
     if (bytes < 1024) return "$bytes B"
     val units = listOf("KB", "MB", "GB", "TB")
     var value = bytes.toDouble()

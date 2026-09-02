@@ -76,4 +76,22 @@
     <string name="browse_group_date_yesterday">Yesterday</string>
     <string name="browse_group_date_this_week">This week</string>
     <string name="browse_group_date_older">Older</string>
+
+    <string name="browse_action_info">Info</string>
+    <string name="browse_info_path">Path</string>
+    <string name="browse_info_size">Size</string>
+    <string name="browse_info_item_count">Items</string>
+    <string name="browse_info_created">Created</string>
+    <string name="browse_info_modified">Modified</string>
+    <string name="browse_info_mime_type">Type</string>
+    <string name="browse_info_permissions">Permissions</string>
+    <string name="browse_info_owner">Owner</string>
+
+    <string name="browse_bookmarks_title">Bookmarks</string>
+    <string name="browse_bookmark_add">Add bookmark</string>
+    <string name="browse_bookmark_remove">Remove bookmark</string>
+    <string name="browse_bookmark_added">Bookmarked "%1$s"</string>
+    <string name="browse_bookmark_removed">Bookmark removed</string>
+
+    <string name="browse_low_storage_warning">Storage is running low on %1$s (%2$s free)</string>
 </resources>

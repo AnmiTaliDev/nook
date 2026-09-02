@@ -24,5 +24,6 @@ sealed interface BrowseDialog {
     data class CreateEntry(val type: CreateEntryType) : BrowseDialog
     data class Rename(val item: FileItem) : BrowseDialog
     data class DeleteConfirmation(val paths: List<String>) : BrowseDialog
+    data class Info(val item: FileItem) : BrowseDialog
     data class OperationError(val message: String) : BrowseDialog
 }

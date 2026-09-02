@@ -1,11 +1,15 @@
 package dev.anmitali.nook.feature.browse
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -14,12 +18,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.anmitali.nook.core.model.FileConflictPolicy
+import dev.anmitali.nook.core.model.FileDetails
 import dev.anmitali.nook.core.model.FileOperationProgress
+import java.text.DateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun AddEntryChooserDialog(
@@ -154,6 +164,61 @@ fun OperationErrorDialog(message: String, onDismiss: () -> Unit) {
         text = { Text(message) },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.browse_cancel)) } },
     )
+}
+
+@Composable
+fun InfoDialog(
+    itemName: String,
+    details: FileDetails?,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(itemName) },
+        text = {
+            if (isLoading || details == null) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                Column {
+                    InfoRow(stringResource(R.string.browse_info_path), details.path)
+                    InfoRow(stringResource(R.string.browse_info_size), formatFileSize(details.sizeBytes))
+                    details.itemCount?.let { InfoRow(stringResource(R.string.browse_info_item_count), it.toString()) }
+                    details.createdEpochMillis?.let {
+                        InfoRow(stringResource(R.string.browse_info_created), formatDateTime(it))
+                    }
+                    InfoRow(stringResource(R.string.browse_info_modified), formatDateTime(details.modifiedEpochMillis))
+                    details.mimeType?.let { InfoRow(stringResource(R.string.browse_info_mime_type), it) }
+                    InfoRow(stringResource(R.string.browse_info_permissions), permissionsText(details))
+                    details.owner?.let { InfoRow(stringResource(R.string.browse_info_owner), it) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.browse_cancel)) } },
+    )
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(text = label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
+    }
+}
+
+private fun formatDateTime(epochMillis: Long): String {
+    val format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
+    return format.format(Date(epochMillis))
+}
+
+private fun permissionsText(details: FileDetails): String {
+    val parts = mutableListOf<String>()
+    if (details.canRead) parts += "r"
+    if (details.canWrite) parts += "w"
+    if (details.canExecute) parts += "x"
+    return parts.joinToString("")
 }
 
 @Composable

@@ -4,20 +4,26 @@ import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.anmitali.nook.core.domain.AddBookmarkUseCase
 import dev.anmitali.nook.core.domain.CopyFilesUseCase
 import dev.anmitali.nook.core.domain.CreateDirectoryUseCase
 import dev.anmitali.nook.core.domain.CreateFileUseCase
 import dev.anmitali.nook.core.domain.DeleteFilesUseCase
 import dev.anmitali.nook.core.domain.FindFileConflictsUseCase
+import dev.anmitali.nook.core.domain.GetBookmarksUseCase
+import dev.anmitali.nook.core.domain.GetFileDetailsUseCase
 import dev.anmitali.nook.core.domain.GetVolumesUseCase
 import dev.anmitali.nook.core.domain.GroupFilesUseCase
 import dev.anmitali.nook.core.domain.ListFilesUseCase
 import dev.anmitali.nook.core.domain.MoveFilesUseCase
+import dev.anmitali.nook.core.domain.RemoveBookmarkUseCase
 import dev.anmitali.nook.core.domain.RenameFileUseCase
 import dev.anmitali.nook.core.domain.RestoreFromTrashUseCase
 import dev.anmitali.nook.core.domain.SearchFilesUseCase
 import dev.anmitali.nook.core.domain.SortFilesUseCase
+import dev.anmitali.nook.core.model.Bookmark
 import dev.anmitali.nook.core.model.FileConflictPolicy
+import dev.anmitali.nook.core.model.FileDetails
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
 import dev.anmitali.nook.core.model.GroupBy
@@ -52,6 +58,10 @@ class BrowseViewModel @Inject constructor(
     private val deleteFilesUseCase: DeleteFilesUseCase,
     private val restoreFromTrashUseCase: RestoreFromTrashUseCase,
     private val renameFileUseCase: RenameFileUseCase,
+    private val getBookmarksUseCase: GetBookmarksUseCase,
+    private val addBookmarkUseCase: AddBookmarkUseCase,
+    private val removeBookmarkUseCase: RemoveBookmarkUseCase,
+    private val getFileDetailsUseCase: GetFileDetailsUseCase,
     private val createDirectoryUseCase: CreateDirectoryUseCase,
     private val createFileUseCase: CreateFileUseCase,
 ) : ViewModel() {
@@ -95,15 +105,28 @@ class BrowseViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
+    val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
+
+    private val _fileDetails = MutableStateFlow<FileDetails?>(null)
+    val fileDetails: StateFlow<FileDetails?> = _fileDetails.asStateFlow()
+
+    private val _isLoadingDetails = MutableStateFlow(false)
+    val isLoadingDetails: StateFlow<Boolean> = _isLoadingDetails.asStateFlow()
+
     private var currentPath: String = Environment.getExternalStorageDirectory().absolutePath
     private var rawItems: List<FileItem> = emptyList()
     private var operationJob: Job? = null
     private var searchJob: Job? = null
+    private var detailsJob: Job? = null
 
     init {
         checkPermissionAndLoad(currentPath)
         getVolumesUseCase()
             .onEach { _volumes.value = it }
+            .launchIn(viewModelScope)
+        getBookmarksUseCase()
+            .onEach { _bookmarks.value = it }
             .launchIn(viewModelScope)
     }
 
@@ -328,7 +351,36 @@ class BrowseViewModel @Inject constructor(
         }
     }
 
+    fun onToggleBookmark() {
+        val state = _uiState.value as? BrowseUiState.Content ?: return
+        val path = state.currentPath
+        viewModelScope.launch {
+            if (_bookmarks.value.any { it.path == path }) {
+                removeBookmarkUseCase(path)
+            } else {
+                val label = File(path).name.ifBlank { path }
+                addBookmarkUseCase(Bookmark(path, label))
+            }
+        }
+    }
+
+    fun onRemoveBookmark(path: String) {
+        viewModelScope.launch { removeBookmarkUseCase(path) }
+    }
+
+    fun onRequestInfo(item: FileItem) {
+        _dialog.value = BrowseDialog.Info(item)
+        _fileDetails.value = null
+        detailsJob?.cancel()
+        detailsJob = viewModelScope.launch {
+            _isLoadingDetails.value = true
+            _fileDetails.value = getFileDetailsUseCase(item.path)
+            _isLoadingDetails.value = false
+        }
+    }
+
     fun onDismissDialog() {
+        detailsJob?.cancel()
         _dialog.value = null
     }
 
