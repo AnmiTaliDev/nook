@@ -13,7 +13,7 @@ lifecycleViewmodelNavigation3 = "2.12.0-alpha02"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.4.0"
 coroutines = "1.11.0"
-kotlinxSerializationCore = "1.9.0"
+kotlinxSerialization = "1.11.0"
 javaxInject = "1"
 junit = "4.13.2"
 androidxTestExtJunit = "1.3.0"
@@ -49,7 +49,8 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
-kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinxSerializationCore" }
+kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 javax-inject = { group = "javax.inject", name = "javax.inject", version.ref = "javaxInject" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

@@ -3,14 +3,19 @@ package dev.anmitali.nook.core.data
 import android.content.Context
 import android.os.Environment
 import android.os.storage.StorageManager
+import android.webkit.MimeTypeMap
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.anmitali.nook.core.domain.FileSource
 import dev.anmitali.nook.core.model.FileConflictPolicy
+import dev.anmitali.nook.core.model.FileDetails
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
 import dev.anmitali.nook.core.model.FileType
 import dev.anmitali.nook.core.model.Volume
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.PosixFileAttributes
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -60,6 +65,48 @@ class LocalFileSource @Inject constructor(
         }
         emit(volumes)
     }.flowOn(Dispatchers.IO)
+
+    override suspend fun getFileDetails(path: String): FileDetails = withContext(Dispatchers.IO) {
+        val file = File(path)
+        val basicAttrs = runCatching {
+            Files.readAttributes(file.toPath(), BasicFileAttributes::class.java)
+        }.getOrNull()
+        val posixAttrs = runCatching {
+            Files.readAttributes(file.toPath(), PosixFileAttributes::class.java)
+        }.getOrNull()
+
+        val (sizeBytes, itemCount) = if (file.isDirectory) {
+            var size = 0L
+            var count = 0
+            for (child in file.walkTopDown()) {
+                if (child == file) continue
+                count++
+                if (!child.isDirectory) size += child.length()
+            }
+            size to count
+        } else {
+            file.length() to null
+        }
+
+        FileDetails(
+            path = file.absolutePath,
+            name = file.name,
+            isDirectory = file.isDirectory,
+            sizeBytes = sizeBytes,
+            itemCount = itemCount,
+            createdEpochMillis = basicAttrs?.creationTime()?.toMillis(),
+            modifiedEpochMillis = file.lastModified(),
+            canRead = file.canRead(),
+            canWrite = file.canWrite(),
+            canExecute = file.canExecute(),
+            owner = posixAttrs?.owner()?.name,
+            mimeType = if (file.isDirectory) {
+                null
+            } else {
+                MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase())
+            },
+        )
+    }
 
     override suspend fun findConflicts(
         sourcePaths: List<String>,
