@@ -30,6 +30,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.zip4j)
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
 }
