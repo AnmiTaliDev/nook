@@ -10,7 +10,9 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.AndroidEntryPoint
 import dev.anmitali.nook.core.designsystem.NookTheme
+import dev.anmitali.nook.core.navigation.ArchiveRoute
 import dev.anmitali.nook.core.navigation.BrowseRoute
+import dev.anmitali.nook.feature.archive.ArchiveContentsScreen
 import dev.anmitali.nook.feature.browse.BrowseScreen
 
 @AndroidEntryPoint
@@ -34,7 +36,16 @@ private fun NookApp() {
         backStack = backStack,
         entryProvider = entryProvider {
             entry<BrowseRoute> {
-                BrowseScreen(onOpenFile = {})
+                BrowseScreen(
+                    onOpenFile = {},
+                    onOpenArchive = { path -> backStack.add(ArchiveRoute(path)) },
+                )
+            }
+            entry<ArchiveRoute> { route ->
+                ArchiveContentsScreen(
+                    archivePath = route.archivePath,
+                    onNavigateUp = { backStack.removeLastOrNull() },
+                )
             }
         },
     )
