@@ -8,3 +8,6 @@ sealed interface NookRoute : NavKey
 
 @Serializable
 data class BrowseRoute(val directoryPath: String? = null) : NookRoute
+
+@Serializable
+data class ArchiveRoute(val archivePath: String) : NookRoute
