@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browse_navigate_up">Наверх</string>
+    <string name="browse_open_menu">Открыть меню</string>
+    <string name="browse_drawer_title">Хранилище</string>
+    <string name="browse_volume_usage">%1$s из %2$s занято</string>
+    <string name="browse_empty_directory">Папка пуста</string>
+    <string name="browse_error_title">Что-то пошло не так</string>
+    <string name="browse_permission_title">Нужен доступ к хранилищу</string>
+    <string name="browse_permission_message">Nook нужен доступ ко всем файлам для просмотра и управления хранилищем.</string>
+    <string name="browse_permission_grant_action">Предоставить доступ</string>
+    <string name="browse_folder_content_description">Папка</string>
+    <string name="browse_file_content_description">Файл</string>
+    <string name="browse_breadcrumb_content_description">Перейти в %1$s</string>
+
+    <string name="browse_selected_count">Выбрано: %1$d</string>
+    <string name="browse_clear_selection">Снять выделение</string>
+    <string name="browse_action_copy">Копировать</string>
+    <string name="browse_action_cut">Вырезать</string>
+    <string name="browse_action_delete">Удалить</string>
+    <string name="browse_action_rename">Переименовать</string>
+    <string name="browse_action_paste">Вставить сюда (%1$d)</string>
+    <string name="browse_add_content_description">Добавить</string>
+    <string name="browse_new_folder">Новая папка</string>
+    <string name="browse_new_file">Новый файл</string>
+    <string name="browse_create_folder_title">Новая папка</string>
+    <string name="browse_create_file_title">Новый файл</string>
+    <string name="browse_name_hint">Имя</string>
+    <string name="browse_create_confirm">Создать</string>
+    <string name="browse_cancel">Отмена</string>
+
+    <string name="browse_rename_title">Переименование</string>
+    <string name="browse_rename_confirm">Переименовать</string>
+
+    <string name="browse_delete_confirm_title">Удалить выбранное (%1$d)?</string>
+    <string name="browse_delete_confirm_message">Удалённые объекты перемещаются в корзину, их можно восстановить.</string>
+    <string name="browse_delete_confirm_action">Удалить</string>
+
+    <string name="browse_conflict_title">Уже существует: %1$d</string>
+    <string name="browse_conflict_message">В папке назначения есть объекты с такими же именами. Выберите действие.</string>
+    <string name="browse_conflict_overwrite">Заменить</string>
+    <string name="browse_conflict_skip">Пропустить</string>
+    <string name="browse_conflict_keep_both">Оставить оба</string>
+
+    <string name="browse_undo_delete_message">Объекты удалены</string>
+    <string name="browse_undo_action">Отменить</string>
+
+    <string name="browse_operation_progress_title">Выполняется…</string>
+    <string name="browse_operation_cancel">Отмена</string>
+
+    <string name="browse_search_action">Поиск</string>
+    <string name="browse_search_hint">Поиск в этой папке</string>
+    <string name="browse_search_close">Закрыть поиск</string>
+    <string name="browse_search_no_results">Ничего не найдено</string>
+    <string name="browse_sort_action">Сортировка и группировка</string>
+    <string name="browse_sort_by_name">Имя</string>
+    <string name="browse_sort_by_date">Дата изменения</string>
+    <string name="browse_sort_by_size">Размер</string>
+    <string name="browse_sort_by_type">Тип</string>
+    <string name="browse_sort_direction_toggle">Обратный порядок сортировки</string>
+    <string name="browse_group_none">Без группировки</string>
+    <string name="browse_group_by_type">Группировать по типу</string>
+    <string name="browse_group_by_date">Группировать по дате</string>
+
+    <string name="browse_group_type_directory">Папки</string>
+    <string name="browse_group_type_image">Изображения</string>
+    <string name="browse_group_type_video">Видео</string>
+    <string name="browse_group_type_audio">Аудио</string>
+    <string name="browse_group_type_document">Документы</string>
+    <string name="browse_group_type_archive">Архивы</string>
+    <string name="browse_group_type_apk">APK-файлы</string>
+    <string name="browse_group_type_text">Текст</string>
+    <string name="browse_group_type_other">Другое</string>
+    <string name="browse_group_date_today">Сегодня</string>
+    <string name="browse_group_date_yesterday">Вчера</string>
+    <string name="browse_group_date_this_week">На этой неделе</string>
+    <string name="browse_group_date_older">Раньше</string>
+
+    <string name="browse_action_info">Информация</string>
+    <string name="browse_info_path">Путь</string>
+    <string name="browse_info_size">Размер</string>
+    <string name="browse_info_item_count">Объектов</string>
+    <string name="browse_info_created">Создано</string>
+    <string name="browse_info_modified">Изменено</string>
+    <string name="browse_info_mime_type">Тип</string>
+    <string name="browse_info_permissions">Права доступа</string>
+    <string name="browse_info_owner">Владелец</string>
+
+    <string name="browse_bookmarks_title">Закладки</string>
+    <string name="browse_bookmark_add">Добавить в закладки</string>
+    <string name="browse_bookmark_remove">Убрать закладку</string>
+
+    <string name="browse_low_storage_warning">Заканчивается место на %1$s (свободно %2$s)</string>
+
+    <string name="browse_action_compress">Сжать</string>
+    <string name="browse_action_extract">Распаковать</string>
+    <string name="browse_compress_title">Создать архив</string>
+    <string name="browse_password_title">Требуется пароль</string>
+    <string name="browse_password_hint">Пароль</string>
+    <string name="browse_password_confirm">Разблокировать</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="archive_navigate_up">Наверх</string>
+    <string name="archive_empty">Архив пуст</string>
+    <string name="archive_error_title">Не удалось прочитать архив</string>
+    <string name="archive_folder_content_description">Папка</string>
+    <string name="archive_file_content_description">Файл</string>
+</resources>
