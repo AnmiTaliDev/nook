@@ -80,14 +80,18 @@ throwaway increment.
 
 ## v0.5 — Archives
 
-- [ ] `feature:archive` module: create `.zip` archives from a selection,
-      extract `.zip` archives into a chosen directory.
-- [ ] Read-only support for browsing `.tar`, `.tar.gz`, and `.7z` contents
-      without full extraction.
+- [x] `feature:archive` module: create `.zip` archives from a selection
+      (via zip4j), extract `.zip` archives into a chosen directory. Tapping
+      a `.zip`/`.tar`/`.tar.gz`/`.7z` file opens a dedicated archive-contents
+      screen (new `ArchiveRoute` Navigation 3 destination).
+- [x] Read-only support for browsing `.tar`, `.tar.gz`, and `.7z` contents
+      without full extraction, via Apache Commons Compress.
 - [ ] Archive operations registered through the action registry introduced
-      in v0.2/v0.9, not hardcoded into `feature:browse`.
-- [ ] Password-protected zip extraction (prompt for password, surface wrong
-      password as a distinct error state).
+      in v0.2/v0.9, not hardcoded into `feature:browse`. Still deferred: all
+      operations (including archives) are wired directly into
+      `BrowseViewModel`, same as copy/move/delete.
+- [x] Password-protected zip extraction (prompt for password, surface wrong
+      password as a distinct error state via `WrongPasswordException`).
 
 ## v0.6 — Accessibility and localization pass
 
