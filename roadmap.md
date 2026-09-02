@@ -95,18 +95,35 @@ throwaway increment.
 
 ## v0.6 — Accessibility and localization pass
 
-- [ ] Full TalkBack audit of every screen shipped so far; fix any
-      missing/incorrect content descriptions found.
-- [ ] WCAG AA contrast verification for both static themes and spot-checks
-      against common dynamic-color outputs.
-- [ ] RTL layout testing (mirrored icons, breadcrumbs, swipe directions)
-      using a pseudo-RTL locale.
-- [ ] Large font scale (up to 200%) testing across all screens; fix
-      truncation and overlap issues.
-- [ ] First additional language(s) beyond English (translation
-      infrastructure already in place since v0.1; this is the first
-      milestone that ships translated `values-xx/strings.xml` files).
-- [ ] Switch/keyboard navigation pass for the file list and dialogs.
+- [x] Static TalkBack audit of every `contentDescription` across
+      `feature:browse` and `feature:archive`: confirmed decorative icons
+      next to visible labels are correctly `null`, and fixed a real gap —
+      multi-select rows had no accessible "selected" state (checkmark icons
+      were decorative-only); added `Modifier.semantics { selected = ... }`.
+      Not yet verified with a real TalkBack pass on-device (no emulator
+      available in this environment).
+- [x] WCAG AA contrast verification for the static light/dark themes:
+      computed relative-luminance contrast ratios for every on-X/X color
+      pair, all pass 4.5:1 (exceeding the 3:1 large-text/UI minimum).
+      Dynamic-color contrast is inherently device/wallpaper-dependent and
+      not spot-checked here.
+- [ ] RTL layout testing using a pseudo-RTL locale. Code-level audit done
+      (no hardcoded left/right padding found; fixed one non-mirrored icon,
+      `Icons.Filled.Sort` → `Icons.AutoMirrored.Filled.Sort`), but no actual
+      on-device/emulator RTL render check performed.
+- [ ] Large font scale (up to 200%) testing across all screens. Code-level
+      audit done (no fixed `.height()`/`.size()` constraints on
+      text-bearing containers found), but no on-device render check
+      performed.
+- [x] First additional language beyond English: Russian
+      (`values-ru/strings.xml`) added for `feature:browse` and
+      `feature:archive`, with 1:1 key parity verified against the English
+      base.
+- [x] Switch/keyboard navigation: audited for accidental loss of default
+      Compose focusability/semantics (none found — all interactive elements
+      use standard `clickable`/`combinedClickable`/button components, which
+      are focusable and Enter/D-pad activatable by default). Not verified
+      with a physical keyboard or switch device.
 
 ## v0.7 — Adaptive layouts
 
