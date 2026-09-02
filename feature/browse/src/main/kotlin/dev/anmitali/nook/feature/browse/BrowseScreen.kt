@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
@@ -104,6 +106,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun BrowseScreen(
     onOpenFile: (FileItem) -> Unit,
+    onOpenArchive: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BrowseViewModel = hiltViewModel(),
 ) {
@@ -197,7 +200,17 @@ fun BrowseScreen(
                             val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
                             viewModel.onRequestInfo(item)
                         },
+                        onCompress = viewModel::onRequestCompress,
+                        onExtract = {
+                            val state = uiState as? BrowseUiState.Content ?: return@SelectionTopBar
+                            val item = state.items.find { it.path == selectedPaths.first() } ?: return@SelectionTopBar
+                            viewModel.onRequestExtract(item)
+                        },
                         canRename = selectedPaths.size == 1,
+                        canExtract = selectedPaths.size == 1 &&
+                            (uiState as? BrowseUiState.Content)?.items
+                                ?.find { it.path == selectedPaths.first() }
+                                ?.let { isZipFile(it.name) } == true,
                     )
                     else -> TopAppBar(
                         title = {
@@ -288,11 +301,13 @@ fun BrowseScreen(
                             results = searchResults,
                             isSearching = isSearching,
                             onItemClick = { item ->
-                                if (item.isDirectory) {
-                                    viewModel.onSearchDismissed()
-                                    viewModel.onDirectoryOpened(item.path)
-                                } else {
-                                    onOpenFile(item)
+                                when {
+                                    item.isDirectory -> {
+                                        viewModel.onSearchDismissed()
+                                        viewModel.onDirectoryOpened(item.path)
+                                    }
+                                    isArchiveFile(item.name) -> onOpenArchive(item.path)
+                                    else -> onOpenFile(item)
                                 }
                             },
                         )
@@ -310,6 +325,7 @@ fun BrowseScreen(
                                     when {
                                         selectedPaths.isNotEmpty() -> viewModel.toggleSelection(item.path)
                                         item.isDirectory -> viewModel.onDirectoryOpened(item.path)
+                                        isArchiveFile(item.name) -> onOpenArchive(item.path)
                                         else -> onOpenFile(item)
                                     }
                                 },
@@ -361,6 +377,15 @@ fun BrowseScreen(
             details = fileDetails,
             isLoading = isLoadingDetails,
             onDismiss = viewModel::onDismissDialog,
+        )
+        is BrowseDialog.CreateArchive -> CreateArchiveDialog(
+            onDismiss = viewModel::onDismissDialog,
+            onConfirm = viewModel::onConfirmCompress,
+        )
+        is BrowseDialog.PasswordPrompt -> PasswordPromptDialog(
+            errorMessage = currentDialog.errorMessage,
+            onDismiss = viewModel::onDismissDialog,
+            onConfirm = viewModel::onConfirmPassword,
         )
         is BrowseDialog.Conflict -> ConflictDialog(
             conflictingNames = currentDialog.conflictingNames,
@@ -549,7 +574,10 @@ private fun SelectionTopBar(
     onDelete: () -> Unit,
     onRename: () -> Unit,
     onInfo: () -> Unit,
+    onCompress: () -> Unit,
+    onExtract: () -> Unit,
     canRename: Boolean,
+    canExtract: Boolean,
 ) {
     TopAppBar(
         title = { Text(stringResource(R.string.browse_selected_count, selectedCount)) },
@@ -566,6 +594,14 @@ private fun SelectionTopBar(
                 IconButton(onClick = onRename) {
                     Icon(Icons.Filled.DriveFileRenameOutline, contentDescription = stringResource(R.string.browse_action_rename))
                 }
+            }
+            if (canExtract) {
+                IconButton(onClick = onExtract) {
+                    Icon(Icons.Filled.FolderZip, contentDescription = stringResource(R.string.browse_action_extract))
+                }
+            }
+            IconButton(onClick = onCompress) {
+                Icon(Icons.Filled.Archive, contentDescription = stringResource(R.string.browse_action_compress))
             }
             IconButton(onClick = onCopy) {
                 Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.browse_action_copy))

@@ -94,4 +94,11 @@
     <string name="browse_bookmark_removed">Bookmark removed</string>
 
     <string name="browse_low_storage_warning">Storage is running low on %1$s (%2$s free)</string>
+
+    <string name="browse_action_compress">Compress</string>
+    <string name="browse_action_extract">Extract</string>
+    <string name="browse_compress_title">Create archive</string>
+    <string name="browse_password_title">Password required</string>
+    <string name="browse_password_hint">Password</string>
+    <string name="browse_password_confirm">Unlock</string>
 </resources>

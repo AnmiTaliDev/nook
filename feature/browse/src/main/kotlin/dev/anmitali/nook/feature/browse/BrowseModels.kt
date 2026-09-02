@@ -25,5 +25,16 @@ sealed interface BrowseDialog {
     data class Rename(val item: FileItem) : BrowseDialog
     data class DeleteConfirmation(val paths: List<String>) : BrowseDialog
     data class Info(val item: FileItem) : BrowseDialog
+    data class CreateArchive(val sourcePaths: List<String>) : BrowseDialog
+    data class PasswordPrompt(val archivePath: String, val errorMessage: String? = null) : BrowseDialog
     data class OperationError(val message: String) : BrowseDialog
 }
+
+private val ARCHIVE_EXTENSIONS = setOf("zip", "tar", "gz", "tgz", "7z")
+
+fun isArchiveFile(name: String): Boolean {
+    val lower = name.lowercase()
+    return ARCHIVE_EXTENSIONS.any { lower.endsWith(".$it") }
+}
+
+fun isZipFile(name: String): Boolean = name.lowercase().endsWith(".zip")

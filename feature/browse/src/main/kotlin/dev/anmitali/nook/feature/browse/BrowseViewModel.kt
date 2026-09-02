@@ -8,12 +8,15 @@ import dev.anmitali.nook.core.domain.AddBookmarkUseCase
 import dev.anmitali.nook.core.domain.CopyFilesUseCase
 import dev.anmitali.nook.core.domain.CreateDirectoryUseCase
 import dev.anmitali.nook.core.domain.CreateFileUseCase
+import dev.anmitali.nook.core.domain.CreateZipArchiveUseCase
 import dev.anmitali.nook.core.domain.DeleteFilesUseCase
+import dev.anmitali.nook.core.domain.ExtractZipArchiveUseCase
 import dev.anmitali.nook.core.domain.FindFileConflictsUseCase
 import dev.anmitali.nook.core.domain.GetBookmarksUseCase
 import dev.anmitali.nook.core.domain.GetFileDetailsUseCase
 import dev.anmitali.nook.core.domain.GetVolumesUseCase
 import dev.anmitali.nook.core.domain.GroupFilesUseCase
+import dev.anmitali.nook.core.domain.IsZipPasswordProtectedUseCase
 import dev.anmitali.nook.core.domain.ListFilesUseCase
 import dev.anmitali.nook.core.domain.MoveFilesUseCase
 import dev.anmitali.nook.core.domain.RemoveBookmarkUseCase
@@ -21,6 +24,7 @@ import dev.anmitali.nook.core.domain.RenameFileUseCase
 import dev.anmitali.nook.core.domain.RestoreFromTrashUseCase
 import dev.anmitali.nook.core.domain.SearchFilesUseCase
 import dev.anmitali.nook.core.domain.SortFilesUseCase
+import dev.anmitali.nook.core.domain.WrongPasswordException
 import dev.anmitali.nook.core.model.Bookmark
 import dev.anmitali.nook.core.model.FileConflictPolicy
 import dev.anmitali.nook.core.model.FileDetails
@@ -35,6 +39,7 @@ import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,6 +67,9 @@ class BrowseViewModel @Inject constructor(
     private val addBookmarkUseCase: AddBookmarkUseCase,
     private val removeBookmarkUseCase: RemoveBookmarkUseCase,
     private val getFileDetailsUseCase: GetFileDetailsUseCase,
+    private val createZipArchiveUseCase: CreateZipArchiveUseCase,
+    private val extractZipArchiveUseCase: ExtractZipArchiveUseCase,
+    private val isZipPasswordProtectedUseCase: IsZipPasswordProtectedUseCase,
     private val createDirectoryUseCase: CreateDirectoryUseCase,
     private val createFileUseCase: CreateFileUseCase,
 ) : ViewModel() {
@@ -376,6 +384,69 @@ class BrowseViewModel @Inject constructor(
             _isLoadingDetails.value = true
             _fileDetails.value = getFileDetailsUseCase(item.path)
             _isLoadingDetails.value = false
+        }
+    }
+
+    fun onRequestCompress() {
+        val paths = _selectedPaths.value.toList()
+        if (paths.isEmpty()) return
+        _dialog.value = BrowseDialog.CreateArchive(paths)
+    }
+
+    fun onConfirmCompress(name: String) {
+        val createArchive = _dialog.value as? BrowseDialog.CreateArchive ?: return
+        _dialog.value = null
+        val fileName = if (name.endsWith(".zip", ignoreCase = true)) name else "$name.zip"
+        val destination = File(currentPath, fileName).absolutePath
+        clearSelection()
+        runArchiveOperation { createZipArchiveUseCase(createArchive.sourcePaths, destination) }
+    }
+
+    fun onRequestExtract(item: FileItem) {
+        viewModelScope.launch {
+            if (isZipPasswordProtectedUseCase(item.path)) {
+                _dialog.value = BrowseDialog.PasswordPrompt(item.path)
+            } else {
+                clearSelection()
+                extractArchive(item.path, null)
+            }
+        }
+    }
+
+    fun onConfirmPassword(password: String) {
+        val prompt = _dialog.value as? BrowseDialog.PasswordPrompt ?: return
+        _dialog.value = null
+        clearSelection()
+        extractArchive(prompt.archivePath, password)
+    }
+
+    private fun extractArchive(archivePath: String, password: String?) {
+        runArchiveOperation(
+            onWrongPassword = { _dialog.value = BrowseDialog.PasswordPrompt(archivePath, errorMessage = "Wrong password") },
+        ) { extractZipArchiveUseCase(archivePath, currentPath, password) }
+    }
+
+    private fun runArchiveOperation(
+        onWrongPassword: (() -> Unit)? = null,
+        flowProvider: () -> Flow<FileOperationProgress>,
+    ) {
+        operationJob?.cancel()
+        operationJob = viewModelScope.launch {
+            flowProvider()
+                .onEach { progress -> _operationProgress.value = progress }
+                .onCompletion {
+                    _operationProgress.value = null
+                    refresh()
+                }
+                .catch { throwable ->
+                    _operationProgress.value = null
+                    if (throwable is WrongPasswordException && onWrongPassword != null) {
+                        onWrongPassword()
+                    } else {
+                        _dialog.value = BrowseDialog.OperationError(throwable.message ?: "Operation failed")
+                    }
+                }
+                .launchIn(this)
         }
     }
 
