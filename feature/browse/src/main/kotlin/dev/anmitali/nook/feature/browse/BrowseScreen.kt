@@ -150,6 +150,9 @@ fun BrowseScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddChooser by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var isSidePanelCollapsed by rememberSaveable { mutableStateOf(false) }
+    var panelWidthDp by rememberSaveable { mutableFloatStateOf(DEFAULT_PANEL_WIDTH_DP) }
+    val density = LocalDensity.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
@@ -258,6 +261,15 @@ fun BrowseScreen(
                                     Icon(
                                         imageVector = Icons.Filled.Menu,
                                         contentDescription = stringResource(R.string.browse_open_menu),
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { isSidePanelCollapsed = !isSidePanelCollapsed }) {
+                                    Icon(
+                                        imageVector = if (isSidePanelCollapsed) Icons.Filled.Menu else Icons.AutoMirrored.Filled.MenuOpen,
+                                        contentDescription = stringResource(
+                                            if (isSidePanelCollapsed) R.string.browse_expand_panel else R.string.browse_collapse_panel,
+                                        ),
                                     )
                                 }
                             }
@@ -369,11 +381,22 @@ fun BrowseScreen(
             drawerContent = { ModalDrawerSheet { drawerContent() } },
             content = mainContent,
         )
+        isSidePanelCollapsed -> Box(modifier = modifier.fillMaxSize()) {
+            mainContent()
+        }
         isExpandedWidth -> Row(modifier = modifier.fillMaxSize()) {
-            PermanentDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+            PermanentDrawerSheet(
+                modifier = Modifier.width(panelWidthDp.dp),
+                drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
                 drawerContent()
             }
-            VerticalDivider()
+            ResizableDivider(
+                onDrag = { deltaPx ->
+                    val deltaDp = with(density) { deltaPx.toDp() }.value
+                    panelWidthDp = (panelWidthDp + deltaDp).coerceIn(MIN_PANEL_WIDTH_DP, MAX_PANEL_WIDTH_DP)
+                },
+            )
             Box(modifier = Modifier.weight(1f)) {
                 mainContent()
             }
@@ -721,6 +744,25 @@ private fun SelectionTopBar(
 }
 
 private const val LOW_STORAGE_THRESHOLD = 0.1
+private const val DEFAULT_PANEL_WIDTH_DP = 300f
+private const val MIN_PANEL_WIDTH_DP = 220f
+private const val MAX_PANEL_WIDTH_DP = 480f
+
+@Composable
+private fun ResizableDivider(onDrag: (deltaPx: Float) -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(16.dp)
+            .draggable(
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState(onDelta = onDrag),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        VerticalDivider()
+    }
+}
 
 @Composable
 private fun LowStorageBanner(volume: Volume) {

@@ -2,6 +2,8 @@
 <resources>
     <string name="browse_navigate_up">Navigate up</string>
     <string name="browse_open_menu">Open menu</string>
+    <string name="browse_collapse_panel">Hide side panel</string>
+    <string name="browse_expand_panel">Show side panel</string>
     <string name="browse_drawer_title">Storage</string>
     <string name="browse_volume_usage">%1$s of %2$s used</string>
     <string name="browse_empty_directory">This folder is empty</string>

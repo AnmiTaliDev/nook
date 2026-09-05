@@ -2,6 +2,8 @@
 <resources>
     <string name="browse_navigate_up">Наверх</string>
     <string name="browse_open_menu">Открыть меню</string>
+    <string name="browse_collapse_panel">Скрыть боковую панель</string>
+    <string name="browse_expand_panel">Показать боковую панель</string>
     <string name="browse_drawer_title">Хранилище</string>
     <string name="browse_volume_usage">%1$s из %2$s занято</string>
     <string name="browse_empty_directory">Папка пуста</string>
