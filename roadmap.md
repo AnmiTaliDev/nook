@@ -128,18 +128,32 @@ throwaway increment.
 ## v0.7 — Adaptive layouts
 
 - [x] `WindowSizeClass`-driven layout switch via `material3-adaptive`
-      (`currentWindowAdaptiveInfoV2()`): compact width keeps the modal
-      drawer behind a hamburger icon, medium/expanded width switches to a
-      permanently visible `PermanentNavigationDrawer`. True list-detail
+      (`currentWindowAdaptiveInfoV2()`), full three-tier breakpoints:
+      compact width keeps the modal drawer behind a hamburger icon, medium
+      width shows a `NavigationRail` (volumes + bookmarks as
+      `NavigationRailItem`s, icon + label, scrollable), expanded width
+      switches to a permanently visible `PermanentNavigationDrawer` with
+      full content (volume usage text, bookmark labels). True list-detail
       two-pane (file list + preview pane) is deferred until v0.8 ships a
       preview surface to put in the detail pane — building one now would be
       an empty placeholder.
-- [ ] Navigation rail replaces bottom/drawer navigation on larger widths.
-      Simplified to two tiers instead of the canonical three (compact
-      modal / non-compact permanent drawer) rather than adding a
-      icon-only `NavigationRail` tier, because the drawer's content
-      (volume usage text, bookmark labels) doesn't fit a rail's icon-only
-      format without losing information.
+- [x] Visual separation between the rail/drawer and content: a
+      `VerticalDivider` plus a distinct `surfaceContainerLow` tone on the
+      panel (previously the panel and content shared the same surface
+      color with no seam).
+- [x] Manual collapse/expand for the medium/expanded side panel via the
+      top bar icon (`Icons.AutoMirrored.Filled.MenuOpen`), state kept
+      across rotation with `rememberSaveable`. Compact width is
+      unaffected — it always keeps the modal drawer behind the hamburger.
+- [x] Draggable resize handle for the expanded-width `PermanentDrawerSheet`
+      (220–480dp range, `rememberSaveable` across rotation). Not applied to
+      the medium-width `NavigationRail`, which is a fixed-width Material
+      component by spec (icon+label items sized for ~80dp; stretching it
+      would break the component's own layout). The drag handle itself has
+      no keyboard/TalkBack equivalent yet — a known accessibility gap.
+- [x] Navigation rail replaces bottom/drawer navigation on larger widths:
+      `NavigationRail` at medium width, `PermanentNavigationDrawer` at
+      expanded width.
 - [ ] Multi-window and split-screen behavior verified on phones and
       tablets. Not verified — no emulator/device available in this
       environment.
