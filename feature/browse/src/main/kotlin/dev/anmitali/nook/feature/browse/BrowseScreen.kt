@@ -58,6 +58,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.PermanentDrawerSheet
+import androidx.compose.material3.PermanentNavigationDrawer
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -99,6 +102,7 @@ import dev.anmitali.nook.core.model.GroupBy
 import dev.anmitali.nook.core.model.SortBy
 import dev.anmitali.nook.core.model.SortOrder
 import dev.anmitali.nook.core.model.Volume
+import androidx.window.core.layout.WindowSizeClass
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -134,6 +138,8 @@ fun BrowseScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val isCompactWidth = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val lowStorageVolume = (uiState as? BrowseUiState.Content)?.currentPath?.let { path ->
         volumes.filter { path.startsWith(it.rootPath) }.maxByOrNull { it.rootPath.length }
     }?.takeIf { it.totalBytes > 0 && it.availableBytes.toDouble() / it.totalBytes < LOW_STORAGE_THRESHOLD }
@@ -159,25 +165,23 @@ fun BrowseScreen(
         }
     }
 
-    ModalNavigationDrawer(
-        modifier = modifier,
-        drawerState = drawerState,
-        drawerContent = {
-            BrowseDrawerContent(
-                volumes = volumes,
-                bookmarks = bookmarks,
-                onVolumeClick = { volume ->
-                    viewModel.onDirectoryOpened(volume.rootPath)
-                    coroutineScope.launch { drawerState.close() }
-                },
-                onBookmarkClick = { bookmark ->
-                    viewModel.onDirectoryOpened(bookmark.path)
-                    coroutineScope.launch { drawerState.close() }
-                },
-                onBookmarkRemove = { bookmark -> viewModel.onRemoveBookmark(bookmark.path) },
-            )
-        },
-    ) {
+    val drawerContent: @Composable () -> Unit = {
+        BrowseDrawerContent(
+            volumes = volumes,
+            bookmarks = bookmarks,
+            onVolumeClick = { volume ->
+                viewModel.onDirectoryOpened(volume.rootPath)
+                if (isCompactWidth) coroutineScope.launch { drawerState.close() }
+            },
+            onBookmarkClick = { bookmark ->
+                viewModel.onDirectoryOpened(bookmark.path)
+                if (isCompactWidth) coroutineScope.launch { drawerState.close() }
+            },
+            onBookmarkRemove = { bookmark -> viewModel.onRemoveBookmark(bookmark.path) },
+        )
+    }
+
+    val mainContent: @Composable () -> Unit = {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
@@ -234,7 +238,7 @@ fun BrowseScreen(
                                         contentDescription = stringResource(R.string.browse_navigate_up),
                                     )
                                 }
-                            } else {
+                            } else if (isCompactWidth) {
                                 IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                                     Icon(
                                         imageVector = Icons.Filled.Menu,
@@ -343,6 +347,21 @@ fun BrowseScreen(
         }
     }
 
+    if (isCompactWidth) {
+        ModalNavigationDrawer(
+            modifier = modifier,
+            drawerState = drawerState,
+            drawerContent = { ModalDrawerSheet { drawerContent() } },
+            content = mainContent,
+        )
+    } else {
+        PermanentNavigationDrawer(
+            modifier = modifier,
+            drawerContent = { PermanentDrawerSheet { drawerContent() } },
+            content = mainContent,
+        )
+    }
+
     if (showAddChooser) {
         AddEntryChooserDialog(
             onDismiss = { showAddChooser = false },
@@ -413,60 +432,58 @@ private fun BrowseDrawerContent(
     onBookmarkClick: (Bookmark) -> Unit,
     onBookmarkRemove: (Bookmark) -> Unit,
 ) {
-    ModalDrawerSheet {
-        Text(
-            text = stringResource(R.string.browse_drawer_title),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(16.dp),
+    Text(
+        text = stringResource(R.string.browse_drawer_title),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(16.dp),
+    )
+    volumes.forEach { volume ->
+        NavigationDrawerItem(
+            label = { Text(volume.label) },
+            selected = false,
+            icon = {
+                Icon(
+                    imageVector = if (volume.isRemovable) Icons.Filled.SdStorage else Icons.Filled.Storage,
+                    contentDescription = null,
+                )
+            },
+            badge = {
+                Text(
+                    stringResource(
+                        R.string.browse_volume_usage,
+                        formatFileSize(volume.totalBytes - volume.availableBytes),
+                        formatFileSize(volume.totalBytes),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            },
+            onClick = { onVolumeClick(volume) },
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
-        volumes.forEach { volume ->
+    }
+    if (bookmarks.isNotEmpty()) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        Text(
+            text = stringResource(R.string.browse_bookmarks_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        bookmarks.forEach { bookmark ->
             NavigationDrawerItem(
-                label = { Text(volume.label) },
+                label = { Text(bookmark.label) },
                 selected = false,
-                icon = {
-                    Icon(
-                        imageVector = if (volume.isRemovable) Icons.Filled.SdStorage else Icons.Filled.Storage,
-                        contentDescription = null,
-                    )
-                },
+                icon = { Icon(Icons.Filled.Bookmark, contentDescription = null) },
                 badge = {
-                    Text(
-                        stringResource(
-                            R.string.browse_volume_usage,
-                            formatFileSize(volume.totalBytes - volume.availableBytes),
-                            formatFileSize(volume.totalBytes),
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                    IconButton(onClick = { onBookmarkRemove(bookmark) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.browse_bookmark_remove),
+                        )
+                    }
                 },
-                onClick = { onVolumeClick(volume) },
+                onClick = { onBookmarkClick(bookmark) },
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
-        }
-        if (bookmarks.isNotEmpty()) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text(
-                text = stringResource(R.string.browse_bookmarks_title),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            bookmarks.forEach { bookmark ->
-                NavigationDrawerItem(
-                    label = { Text(bookmark.label) },
-                    selected = false,
-                    icon = { Icon(Icons.Filled.Bookmark, contentDescription = null) },
-                    badge = {
-                        IconButton(onClick = { onBookmarkRemove(bookmark) }) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.browse_bookmark_remove),
-                            )
-                        }
-                    },
-                    onClick = { onBookmarkClick(bookmark) },
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
-            }
         }
     }
 }
