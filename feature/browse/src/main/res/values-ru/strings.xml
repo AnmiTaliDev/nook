@@ -61,6 +61,7 @@
     <string name="browse_group_none">Без группировки</string>
     <string name="browse_group_by_type">Группировать по типу</string>
     <string name="browse_group_by_date">Группировать по дате</string>
+    <string name="browse_show_hidden_files">Показывать скрытые файлы</string>
 
     <string name="browse_group_type_directory">Папки</string>
     <string name="browse_group_type_image">Изображения</string>

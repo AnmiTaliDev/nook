@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -120,6 +121,7 @@ fun BrowseScreen(
     val volumes by viewModel.volumes.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val groupBy by viewModel.groupBy.collectAsState()
+    val showHiddenFiles by viewModel.showHiddenFiles.collectAsState()
     val isSearchActive by viewModel.isSearchActive.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
@@ -266,9 +268,11 @@ fun BrowseScreen(
                                     onDismiss = { showSortMenu = false },
                                     sortOrder = sortOrder,
                                     groupBy = groupBy,
+                                    showHiddenFiles = showHiddenFiles,
                                     onSortByChanged = viewModel::onSortByChanged,
                                     onDirectionToggle = viewModel::onSortDirectionToggled,
                                     onGroupByChanged = viewModel::onGroupByChanged,
+                                    onToggleShowHiddenFiles = viewModel::onToggleShowHiddenFiles,
                                 )
                             }
                         },
@@ -500,9 +504,11 @@ private fun SortMenu(
     onDismiss: () -> Unit,
     sortOrder: SortOrder,
     groupBy: GroupBy,
+    showHiddenFiles: Boolean,
     onSortByChanged: (SortBy) -> Unit,
     onDirectionToggle: () -> Unit,
     onGroupByChanged: (GroupBy) -> Unit,
+    onToggleShowHiddenFiles: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         listOf(
@@ -534,6 +540,14 @@ private fun SortMenu(
                 onClick = { onGroupByChanged(group) },
             )
         }
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.browse_show_hidden_files)) },
+            leadingIcon = {
+                Checkbox(checked = showHiddenFiles, onCheckedChange = null)
+            },
+            onClick = onToggleShowHiddenFiles,
+        )
     }
 }
 
