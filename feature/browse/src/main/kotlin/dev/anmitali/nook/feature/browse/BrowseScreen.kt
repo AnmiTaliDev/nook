@@ -5,20 +5,28 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.MenuOpen
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -51,6 +59,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -62,6 +71,8 @@ import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -78,13 +89,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -140,6 +154,7 @@ fun BrowseScreen(
     val coroutineScope = rememberCoroutineScope()
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val isCompactWidth = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    val isExpandedWidth = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
     val lowStorageVolume = (uiState as? BrowseUiState.Content)?.currentPath?.let { path ->
         volumes.filter { path.startsWith(it.rootPath) }.maxByOrNull { it.rootPath.length }
     }?.takeIf { it.totalBytes > 0 && it.availableBytes.toDouble() / it.totalBytes < LOW_STORAGE_THRESHOLD }
@@ -347,19 +362,35 @@ fun BrowseScreen(
         }
     }
 
-    if (isCompactWidth) {
-        ModalNavigationDrawer(
+    when {
+        isCompactWidth -> ModalNavigationDrawer(
             modifier = modifier,
             drawerState = drawerState,
             drawerContent = { ModalDrawerSheet { drawerContent() } },
             content = mainContent,
         )
-    } else {
-        PermanentNavigationDrawer(
-            modifier = modifier,
-            drawerContent = { PermanentDrawerSheet { drawerContent() } },
-            content = mainContent,
-        )
+        isExpandedWidth -> Row(modifier = modifier.fillMaxSize()) {
+            PermanentDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+                drawerContent()
+            }
+            VerticalDivider()
+            Box(modifier = Modifier.weight(1f)) {
+                mainContent()
+            }
+        }
+        else -> Row(modifier = modifier.fillMaxSize()) {
+            BrowseNavigationRail(
+                volumes = volumes,
+                bookmarks = bookmarks,
+                currentPath = (uiState as? BrowseUiState.Content)?.currentPath,
+                onVolumeClick = { volume -> viewModel.onDirectoryOpened(volume.rootPath) },
+                onBookmarkClick = { bookmark -> viewModel.onDirectoryOpened(bookmark.path) },
+            )
+            VerticalDivider()
+            Box(modifier = Modifier.weight(1f)) {
+                mainContent()
+            }
+        }
     }
 
     if (showAddChooser) {
@@ -484,6 +515,47 @@ private fun BrowseDrawerContent(
                 onClick = { onBookmarkClick(bookmark) },
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun BrowseNavigationRail(
+    volumes: List<Volume>,
+    bookmarks: List<Bookmark>,
+    currentPath: String?,
+    onVolumeClick: (Volume) -> Unit,
+    onBookmarkClick: (Bookmark) -> Unit,
+) {
+    NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            volumes.forEach { volume ->
+                NavigationRailItem(
+                    selected = currentPath?.startsWith(volume.rootPath) == true,
+                    onClick = { onVolumeClick(volume) },
+                    icon = {
+                        Icon(
+                            imageVector = if (volume.isRemovable) Icons.Filled.SdStorage else Icons.Filled.Storage,
+                            contentDescription = null,
+                        )
+                    },
+                    label = { Text(text = volume.label, maxLines = 1) },
+                )
+            }
+            if (bookmarks.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                bookmarks.forEach { bookmark ->
+                    NavigationRailItem(
+                        selected = currentPath == bookmark.path,
+                        onClick = { onBookmarkClick(bookmark) },
+                        icon = { Icon(Icons.Filled.Bookmark, contentDescription = null) },
+                        label = { Text(text = bookmark.label, maxLines = 1) },
+                    )
+                }
+            }
         }
     }
 }
