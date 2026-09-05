@@ -28,6 +28,7 @@ import dev.anmitali.nook.core.domain.WrongPasswordException
 import dev.anmitali.nook.core.model.Bookmark
 import dev.anmitali.nook.core.model.FileConflictPolicy
 import dev.anmitali.nook.core.model.FileDetails
+import dev.anmitali.nook.core.model.FileGroup
 import dev.anmitali.nook.core.model.FileItem
 import dev.anmitali.nook.core.model.FileOperationProgress
 import dev.anmitali.nook.core.model.GroupBy
@@ -113,6 +114,9 @@ class BrowseViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _showHiddenFiles = MutableStateFlow(false)
+    val showHiddenFiles: StateFlow<Boolean> = _showHiddenFiles.asStateFlow()
+
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
     val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
@@ -183,6 +187,11 @@ class BrowseViewModel @Inject constructor(
         applySortAndGroup()
     }
 
+    fun onToggleShowHiddenFiles() {
+        _showHiddenFiles.update { !it }
+        applySortAndGroup()
+    }
+
     fun onSearchActivated() {
         _isSearchActive.value = true
     }
@@ -207,7 +216,9 @@ class BrowseViewModel @Inject constructor(
             delay(SEARCH_DEBOUNCE_MILLIS)
             _isSearching.value = true
             searchFilesUseCase(currentPath, query)
-                .onEach { results -> _searchResults.value = results }
+                .onEach { results ->
+                    _searchResults.value = if (_showHiddenFiles.value) results else results.filterNot { it.isHidden }
+                }
                 .onCompletion { _isSearching.value = false }
                 .catch { _isSearching.value = false }
                 .launchIn(this)
@@ -459,8 +470,13 @@ class BrowseViewModel @Inject constructor(
 
     private fun applySortAndGroup() {
         val state = _uiState.value as? BrowseUiState.Content ?: return
-        val sorted = sortFilesUseCase(rawItems, _sortOrder.value)
-        _uiState.value = state.copy(groups = groupFilesUseCase(sorted, _groupBy.value))
+        _uiState.value = state.copy(groups = buildGroups(rawItems))
+    }
+
+    private fun buildGroups(items: List<FileItem>): List<FileGroup> {
+        val visible = if (_showHiddenFiles.value) items else items.filterNot { it.isHidden }
+        val sorted = sortFilesUseCase(visible, _sortOrder.value)
+        return groupFilesUseCase(sorted, _groupBy.value)
     }
 
     private fun checkPermissionAndLoad(path: String) {
@@ -474,11 +490,10 @@ class BrowseViewModel @Inject constructor(
         listFilesUseCase(path)
             .onEach { items ->
                 rawItems = items
-                val sorted = sortFilesUseCase(items, _sortOrder.value)
                 _uiState.value = BrowseUiState.Content(
                     currentPath = path,
                     breadcrumbs = path.split(File.separatorChar).filter { it.isNotBlank() },
-                    groups = groupFilesUseCase(sorted, _groupBy.value),
+                    groups = buildGroups(items),
                 )
             }
             .catch { throwable ->
