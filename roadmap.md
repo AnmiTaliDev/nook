@@ -127,14 +127,25 @@ throwaway increment.
 
 ## v0.7 — Adaptive layouts
 
-- [ ] `WindowSizeClass`-driven layout switch: single-pane on compact width,
-      list-detail two-pane on medium/expanded width (tablets, unfolded
-      foldables).
+- [x] `WindowSizeClass`-driven layout switch via `material3-adaptive`
+      (`currentWindowAdaptiveInfoV2()`): compact width keeps the modal
+      drawer behind a hamburger icon, medium/expanded width switches to a
+      permanently visible `PermanentNavigationDrawer`. True list-detail
+      two-pane (file list + preview pane) is deferred until v0.8 ships a
+      preview surface to put in the detail pane — building one now would be
+      an empty placeholder.
 - [ ] Navigation rail replaces bottom/drawer navigation on larger widths.
+      Simplified to two tiers instead of the canonical three (compact
+      modal / non-compact permanent drawer) rather than adding a
+      icon-only `NavigationRail` tier, because the drawer's content
+      (volume usage text, bookmark labels) doesn't fit a rail's icon-only
+      format without losing information.
 - [ ] Multi-window and split-screen behavior verified on phones and
-      tablets.
+      tablets. Not verified — no emulator/device available in this
+      environment.
 - [ ] Foldable-specific testing: fold/unfold transition, hinge-aware layout
-      via `WindowLayoutInfo` where applicable.
+      via `WindowLayoutInfo`. Not implemented or verified — no foldable
+      emulator available.
 
 ## v0.8 — Pluggable file preview
 
