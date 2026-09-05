@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -103,6 +104,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.anmitali.nook.core.model.Bookmark
@@ -706,38 +708,64 @@ private fun SelectionTopBar(
     canRename: Boolean,
     canExtract: Boolean,
 ) {
+    var showOverflowMenu by remember { mutableStateOf(false) }
     TopAppBar(
-        title = { Text(stringResource(R.string.browse_selected_count, selectedCount)) },
+        title = {
+            Text(
+                text = stringResource(R.string.browse_selected_count, selectedCount),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
         navigationIcon = {
             IconButton(onClick = onClear) {
                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.browse_clear_selection))
             }
         },
         actions = {
-            if (canRename) {
-                IconButton(onClick = onInfo) {
-                    Icon(Icons.Filled.Info, contentDescription = stringResource(R.string.browse_action_info))
-                }
-                IconButton(onClick = onRename) {
-                    Icon(Icons.Filled.DriveFileRenameOutline, contentDescription = stringResource(R.string.browse_action_rename))
-                }
-            }
-            if (canExtract) {
-                IconButton(onClick = onExtract) {
-                    Icon(Icons.Filled.FolderZip, contentDescription = stringResource(R.string.browse_action_extract))
-                }
-            }
-            IconButton(onClick = onCompress) {
-                Icon(Icons.Filled.Archive, contentDescription = stringResource(R.string.browse_action_compress))
-            }
-            IconButton(onClick = onCopy) {
-                Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.browse_action_copy))
-            }
-            IconButton(onClick = onCut) {
-                Icon(Icons.Filled.ContentCut, contentDescription = stringResource(R.string.browse_action_cut))
-            }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.browse_action_delete))
+            }
+            Box {
+                IconButton(onClick = { showOverflowMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.browse_more_actions))
+                }
+                DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
+                    if (canRename) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.browse_action_info)) },
+                            leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                            onClick = { showOverflowMenu = false; onInfo() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.browse_action_rename)) },
+                            leadingIcon = { Icon(Icons.Filled.DriveFileRenameOutline, contentDescription = null) },
+                            onClick = { showOverflowMenu = false; onRename() },
+                        )
+                    }
+                    if (canExtract) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.browse_action_extract)) },
+                            leadingIcon = { Icon(Icons.Filled.FolderZip, contentDescription = null) },
+                            onClick = { showOverflowMenu = false; onExtract() },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.browse_action_compress)) },
+                        leadingIcon = { Icon(Icons.Filled.Archive, contentDescription = null) },
+                        onClick = { showOverflowMenu = false; onCompress() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.browse_action_copy)) },
+                        leadingIcon = { Icon(Icons.Filled.ContentCopy, contentDescription = null) },
+                        onClick = { showOverflowMenu = false; onCopy() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.browse_action_cut)) },
+                        leadingIcon = { Icon(Icons.Filled.ContentCut, contentDescription = null) },
+                        onClick = { showOverflowMenu = false; onCut() },
+                    )
+                }
             }
         },
     )

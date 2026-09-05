@@ -20,6 +20,7 @@
     <string name="browse_action_copy">Копировать</string>
     <string name="browse_action_cut">Вырезать</string>
     <string name="browse_action_delete">Удалить</string>
+    <string name="browse_more_actions">Другие действия</string>
     <string name="browse_action_rename">Переименовать</string>
     <string name="browse_action_paste">Вставить сюда (%1$d)</string>
     <string name="browse_add_content_description">Добавить</string>

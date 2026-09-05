@@ -20,6 +20,7 @@
     <string name="browse_action_copy">Copy</string>
     <string name="browse_action_cut">Cut</string>
     <string name="browse_action_delete">Delete</string>
+    <string name="browse_more_actions">More actions</string>
     <string name="browse_action_rename">Rename</string>
     <string name="browse_action_paste">Paste %1$d item(s) here</string>
     <string name="browse_add_content_description">Add</string>
